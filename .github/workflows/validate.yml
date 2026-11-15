@@ -1,0 +1,74 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check that local deployment files are ignored
+        run: |
+          tracked_ignored=$(git ls-files -ci --exclude-standard)
+          if [[ -n "$tracked_ignored" ]]; then
+            printf 'Tracked files matching ignore rules:\n%s\n' "$tracked_ignored" >&2
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Install validation tools
+        shell: bash
+        run: |
+          tools_dir=$(mktemp -d "$RUNNER_TEMP/cloudlab-tools.XXXXXX")
+          cd "$tools_dir"
+          mkdir bin
+          download() {
+            local base=$1 archive=$2 checksums=$3 member=$4 tool=$5
+            curl -fsSL --retry 3 --max-time 60 "$base/$archive" -o "$archive"
+            curl -fsSL --retry 3 --max-time 60 "$base/$checksums" -o checksums
+            awk -v file="$archive" '$2 == file || $2 == "*" file {print $1 "  " file}' checksums |
+              sha256sum --check --strict
+            tar -xzf "$archive" -O "$member" > "bin/$tool"
+            chmod 0755 "bin/$tool"
+          }
+
+          download https://github.com/opentofu/opentofu/releases/download/v1.13.9 \
+            tofu_1.13.9_linux_amd64.tar.gz tofu_1.13.9_SHA256SUMS tofu tofu
+          download https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.8.3 \
+            kustomize_v5.8.3_linux_amd64.tar.gz checksums.txt kustomize kustomize
+          download https://get.helm.sh \
+            helm-v3.19.2-linux-amd64.tar.gz helm-v3.19.2-linux-amd64.tar.gz.sha256sum linux-amd64/helm helm
+          download https://github.com/fluxcd/flux2/releases/download/v2.10.0 \
+            flux_2.10.0_linux_amd64.tar.gz flux_2.10.0_checksums.txt flux flux
+          download https://github.com/yannh/kubeconform/releases/download/v0.8.0 \
+            kubeconform-linux-amd64.tar.gz CHECKSUMS kubeconform kubeconform
+          download https://github.com/gitleaks/gitleaks/releases/download/v8.30.1 \
+            gitleaks_8.30.1_linux_x64.tar.gz gitleaks_8.30.1_checksums.txt gitleaks gitleaks
+
+          python3 -m pip install --disable-pip-version-check PyYAML==6.0.2
+          printf '%s\n' "$tools_dir/bin" >> "$GITHUB_PATH"
+
+      - name: Scan Git history and checked-out files for credentials
+        run: |
+          git rev-parse --verify HEAD > /dev/null
+          gitleaks git --log-opts=--all --redact=100 --no-banner .
+          gitleaks dir --redact=100 --no-banner .
+
+      - name: Validate OpenTofu, Kubernetes and Helm configuration
+        run: ./scripts/validate.sh

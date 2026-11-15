@@ -1,0 +1,7 @@
+instance_id           = "REPLACE_INSTANCE_ID"
+image_id              = "REPLACE_IMAGE_ID"
+vpc_id                = "REPLACE_VPC_ID"
+subnet_id             = "REPLACE_SUBNET_ID"
+backup_bucket         = "REPLACE_BACKUP_BUCKET"
+cloudflare_account_id = "REPLACE_CLOUDFLARE_ACCOUNT_ID"
+ssh_cidr              = "REPLACE_SSH_CIDR"

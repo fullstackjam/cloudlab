@@ -1,0 +1,378 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami
+  namespace: apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: whoami
+  template:
+    metadata:
+      labels:
+        app: whoami
+    spec:
+      containers:
+      - name: whoami
+        image: traefik/whoami:v1.11.0
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+  namespace: apps
+spec:
+  selector:
+    app: whoami
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uptime-kuma
+  namespace: apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: uptime-kuma
+  template:
+    metadata:
+      labels:
+        app: uptime-kuma
+    spec:
+      containers:
+      - name: uptime-kuma
+        image: louislam/uptime-kuma:1.23.16
+        ports:
+        - containerPort: 3001
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 3001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: uptime-kuma
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: uptime-kuma
+  namespace: apps
+spec:
+  selector:
+    app: uptime-kuma
+  ports:
+  - port: 3001
+    targetPort: 3001
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uptime-kuma
+  namespace: apps
+spec:
+  storageClassName: local-path
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb
+  namespace: apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: influxdb
+  template:
+    metadata:
+      labels:
+        app: influxdb
+    spec:
+      containers:
+      - name: influxdb
+        image: influxdb:2.7.12
+        ports:
+        - containerPort: 8086
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 8086
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        env:
+        - name: DOCKER_INFLUXDB_INIT_MODE
+          value: setup
+        - name: DOCKER_INFLUXDB_INIT_USERNAME
+          value: jam
+        - name: DOCKER_INFLUXDB_INIT_ORG
+          value: cloudlab
+        - name: DOCKER_INFLUXDB_INIT_BUCKET
+          value: apple-health
+        - name: DOCKER_INFLUXDB_INIT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-auth
+              key: password
+        - name: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: influxdb-auth
+              key: token
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/influxdb2
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: influxdb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: apps
+spec:
+  selector:
+    app: influxdb
+  ports:
+  - port: 8086
+    targetPort: 8086
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: influxdb
+  namespace: apps
+spec:
+  storageClassName: local-path
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 40Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  namespace: apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: homepage
+  template:
+    metadata:
+      labels:
+        app: homepage
+    spec:
+      containers:
+      - name: homepage
+        image: ghcr.io/gethomepage/homepage:v1.6.0
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        env:
+        - name: HOMEPAGE_ALLOWED_HOSTS
+          value: home.fullstackjam.com
+        volumeMounts:
+        - name: config
+          mountPath: /app/config/settings.yaml
+          subPath: settings.yaml
+        - name: config
+          mountPath: /app/config/services.yaml
+          subPath: services.yaml
+        - name: config
+          mountPath: /app/config/widgets.yaml
+          subPath: widgets.yaml
+        - name: config
+          mountPath: /app/config/bookmarks.yaml
+          subPath: bookmarks.yaml
+        - name: config
+          mountPath: /app/config/docker.yaml
+          subPath: docker.yaml
+        - name: config
+          mountPath: /app/config/kubernetes.yaml
+          subPath: kubernetes.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: homepage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homepage
+  namespace: apps
+spec:
+  selector:
+    app: homepage
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage
+  namespace: apps
+data:
+  settings.yaml: 'title: Jam CloudLab
+
+    '
+  services.yaml: "- CloudLab:\n    - Status:\n        href: https://status.fullstackjam.com\n\
+    \    - Grafana:\n        href: https://grafana.fullstackjam.com\n    - Health:\n\
+    \        href: https://health.fullstackjam.com\n"
+  widgets.yaml: '[]
+
+    '
+  bookmarks.yaml: '[]
+
+    '
+  docker.yaml: '{}
+
+    '
+  kubernetes.yaml: 'mode: disabled
+
+    '
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: whoami
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - whoami.fullstackjam.com
+  rules:
+  - backendRefs:
+    - name: whoami
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: status
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - status.fullstackjam.com
+  rules:
+  - backendRefs:
+    - name: uptime-kuma
+      port: 3001
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: health
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - health.fullstackjam.com
+  rules:
+  - backendRefs:
+    - name: influxdb
+      port: 8086
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: home
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - home.fullstackjam.com
+  rules:
+  - backendRefs:
+    - name: homepage
+      port: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - grafana.fullstackjam.com
+  rules:
+  - backendRefs:
+    - name: monitoring-grafana
+      port: 80
