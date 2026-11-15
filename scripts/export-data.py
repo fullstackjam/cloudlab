@@ -8,6 +8,11 @@ keep={'monitor','heartbeat','stat_daily','stat_hourly','stat_minutely','status_p
 for (table,) in b.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall():
  if table.startswith('sqlite_'):continue
  quoted='"'+table.replace('"','""')+'"'
+ if table=='setting':
+  # Keep the schema markers so restoring a copy does not replay applied patches.
+  b.execute('DELETE FROM setting WHERE key IS NULL OR key NOT IN (?, ?)',
+            ('database_version', 'databasePatchedFiles'))
+  continue
  if table not in keep:b.execute('DELETE FROM '+quoted);continue
  if table=='monitor':
   allowed={'id','name','active','type','interval','retry_interval','resend_interval','maxretries','weight','upside_down','accepted_statuscodes_json','method','hostname','port','url','description'}
