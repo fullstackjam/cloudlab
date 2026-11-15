@@ -52,7 +52,7 @@ resource "tencentcloud_cos_bucket" "backups" {
 }
 resource "cloudflare_zero_trust_tunnel_cloudflared" "cloudlab" {
   account_id = var.cloudflare_account_id
-  name       = "cloudlab-new"
+  name       = "cloudlab"
   config_src = "cloudflare"
 }
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "cloudlab" {

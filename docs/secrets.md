@@ -43,7 +43,7 @@ SOPS_AGE_KEY_FILE="$PWD/.local/age.agekey" sops decrypt \
 mv .local/credentials.sops.yaml secrets/credentials.sops.yaml
 ```
 
-加密和解密校验通过后，删除 `.local/credentials.yaml`。将 `secrets/kustomization.yaml` 的 `resources` 改为 `[credentials.sops.yaml]`，检查待提交内容只有公钥、密文和资源引用，再提交并推送到 `main`。
+加密和解密校验通过后，删除 `.local/credentials.yaml`。将 `secrets/kustomization.yaml` 的 `resources` 改为 `[credentials.sops.yaml]`，检查待提交内容只有公钥、密文和资源引用，再提交并推送到 `main`。公开仓库中的 Secret 名称和字段名可见，私钥留在凭据库和 Flux 的解密 Secret 中。 [Flux SOPS 指南](https://fluxcd.io/flux/guides/mozilla-sops/)
 
 回到 [部署手册](bootstrap.md#5-执行一次-flux-bootstrap)。完成 bootstrap 后，如果已确认可以从凭据库恢复私钥，可以删除本地私钥副本。OpenTofu state 作为加密附件存入凭据库。
 

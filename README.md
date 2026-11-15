@@ -1,7 +1,7 @@
 # Jam CloudLab
 Reusable single-node GitOps scaffold on an existing Tencent Cloud CVM, with a dedicated COS backup bucket. The Flux source is the private `fullstackjam/cloudlab` repository on `main`.
 
-The reference deployment uses one Ubuntu 24.04 node with a separate ext4 data disk mounted at `/data`. Keep deployment-specific host addresses, infrastructure state and credentials in local configuration or in a private deployment repository.
+The reference deployment uses one Ubuntu 24.04 node with a separate ext4 data disk mounted at `/data`. Keep host addresses, OpenTofu state, plaintext credentials, and the age private key outside Git. Flux reads the SOPS ciphertext and age public recipient from the same source repository.
 
 Architecture: GitHub → Flux → SOPS/age Secrets → Traefik/Gateway API, Cloudflare Tunnel, Homepage, Uptime Kuma, whoami, InfluxDB/Apple Health and kube-prometheus-stack/Grafana. Single k3s server, built-in local-path provisioner on `/data/k3s/storage`. No Longhorn, Rook, Ceph, Harbor, Gitea, Kanidm or Woodpecker. Prometheus keeps 3 days / 8 GB within a 12 Gi PVC and has a 2 GiB memory limit. PVC requests are not disk quotas with local-path: monitor the 200 GB filesystem and alert before 80%. Size and upgrade node deliberately; single-node upgrades cause downtime. k3s server data is on `/data/k3s/server`; rebuilding uses Git + 1Password + data exports, not stale etcd copies.
 

@@ -1,4 +1,4 @@
 creation_rules:
   - path_regex: secrets/.*\.sops\.yaml$
     encrypted_regex: ^(data|stringData)$
-    age: REPLACE_WITH_NEW_AGE_PUBLIC_RECIPIENT
+    age: age1t9jwm4eltg9830989j9qjefkzcexhvman6uylhamh9826t407pesn5s0ac
