@@ -22,5 +22,5 @@ done
 printf '%s\n' "$age_key" |
   kubectl create secret generic sops-age -n flux-system --from-file=age.agekey=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
 unset age_key SOPS_AGE_KEY
-flux bootstrap github --owner=fullstackjam --repository="$GITHUB_REPOSITORY" --branch=main --personal --path=clusters/cloudlab
+flux bootstrap github --owner=fullstackjam --repository="$GITHUB_REPOSITORY" --branch=main --personal --path=clusters/cloudlab --version=v2.9.6
 flux reconcile kustomization flux-system --with-source

@@ -54,8 +54,8 @@ jobs:
             kustomize_v5.8.3_linux_amd64.tar.gz checksums.txt kustomize kustomize
           download https://get.helm.sh \
             helm-v3.19.2-linux-amd64.tar.gz helm-v3.19.2-linux-amd64.tar.gz.sha256sum linux-amd64/helm helm
-          download https://github.com/fluxcd/flux2/releases/download/v2.10.0 \
-            flux_2.10.0_linux_amd64.tar.gz flux_2.10.0_checksums.txt flux flux
+          download https://github.com/fluxcd/flux2/releases/download/v2.9.6 \
+            flux_2.9.6_linux_amd64.tar.gz flux_2.9.6_checksums.txt flux flux
           download https://github.com/yannh/kubeconform/releases/download/v0.8.0 \
             kubeconform-linux-amd64.tar.gz CHECKSUMS kubeconform kubeconform
           download https://github.com/gitleaks/gitleaks/releases/download/v8.30.1 \

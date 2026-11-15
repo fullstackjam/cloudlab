@@ -5,7 +5,7 @@
 ## 1. 准备 GitHub、主机和工具
 
 - Flux 从 `fullstackjam/cloudlab` 的 `main` 分支读取部署配置和 SOPS 密文。如果源仓库尚未建立，先在 GitHub 创建仓库并推送 `main`。
-- 管理机需要 Git、SSH、OpenTofu、kubectl、Flux、SOPS、age 和凭据管理工具。若需创建 GitHub 仓库，再准备已登录的 GitHub CLI。运行仓库校验还需要 Kustomize、Helm、kubeconform 和带 PyYAML 的 Python 3。工具版本见 [README](../README.md#local-git-and-validation)。从仓库根目录运行 `./scripts/validate.sh`，确认静态校验通过。
+- 管理机需要 Git、SSH、OpenTofu、kubectl、Flux 2.9.6、SOPS、age 和凭据管理工具。Flux 2.9.6 对应这里的 Kubernetes 1.34。若需创建 GitHub 仓库，再准备已登录的 GitHub CLI。运行仓库校验还需要 Kustomize、Helm、kubeconform 和带 PyYAML 的 Python 3。工具版本见 [README](../README.md#local-git-and-validation)。从仓库根目录运行 `./scripts/validate.sh`，确认静态校验通过。 [Flux 2.9 支持版本](https://fluxcd.io/blog/2026/06/flux-v2.9.0/#supported-versions)
 - 准备 Ubuntu 24.04 主机及其 SSH 和 sudo 访问。确认 ext4 数据盘已挂载到 `/data`，并核对系统盘、数据盘归属及开机挂载。新主机需先创建 CVM、配置 SSH 和安全组、附加并挂载数据盘。在部署配置中记录 SSH 目标、CVM ID 和数据盘 ID。
 - CVM 需要访问 GitHub、Helm 仓库、镜像仓库及 Cloudflare。保留可信来源的 SSH 入口，Kubernetes API 由 SSH 转发访问。Tunnel 所需出站端口见 [DNS 与访问控制](dns.md)。
 - 按 [凭据清单](secrets.md) 准备腾讯云和 Cloudflare 的 OpenTofu 凭据、Grafana 管理员和 InfluxDB 初始化凭据。GitHub fine-grained PAT 限定到 Flux 源仓库，`Contents` 和 `Administration` 均需读写权限，`Metadata` 只读。Flux 用这个 PAT 写入引导提交并登记 deploy key，仓库规则需允许引导提交写入 `main`。 [Flux GitHub bootstrap](https://fluxcd.io/flux/installation/bootstrap/github/)
