@@ -15,12 +15,14 @@ else
 fi
 SOPS_AGE_KEY="$age_key" sops decrypt secrets/credentials.sops.yaml >/dev/null
 flux check --pre
-# Namespace must exist before actually creating the Secret.
+# Apply generated manifests server-side to keep bootstrap lightweight over SSH.
 for ns in infra apps flux-system; do
-  kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+  kubectl create namespace "$ns" --dry-run=client -o yaml |
+    kubectl apply --server-side --validate=false -f -
 done
 printf '%s\n' "$age_key" |
-  kubectl create secret generic sops-age -n flux-system --from-file=age.agekey=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
+  kubectl create secret generic sops-age -n flux-system --from-file=age.agekey=/dev/stdin --dry-run=client -o yaml |
+  kubectl apply --server-side --validate=false -f -
 unset age_key SOPS_AGE_KEY
 flux bootstrap github --owner=fullstackjam --repository="$GITHUB_REPOSITORY" --branch=main --personal --path=clusters/cloudlab --version=v2.9.6
 flux reconcile kustomization flux-system --with-source
