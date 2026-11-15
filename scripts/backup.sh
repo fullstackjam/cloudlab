@@ -15,7 +15,7 @@ trap cleanup EXIT
 pod=$(kubectl -n apps get pods -l app=influxdb -o jsonpath='{.items[0].metadata.name}')
 kubectl -n apps exec "$pod" -- sh -ec 'influx query --raw --org cloudlab --host http://localhost:8086 --token "$DOCKER_INFLUXDB_INIT_ADMIN_TOKEN" '\''from(bucket:"apple-health") |> range(start: 1970-01-01T00:00:00Z)'\''' > "$stage/apple-health.csv"
 claim=$(kubectl -n apps get pvc uptime-kuma -o jsonpath='{.spec.volumeName}')
-path=$(kubectl get pv "$claim" -o jsonpath='{.spec.hostPath.path}')
+path=$(kubectl get pv "$claim" -o jsonpath='{.spec.local.path}{.spec.hostPath.path}')
 [[ $path == /data/k3s/storage/* ]] || { echo 'Unexpected PV path'; exit 1; }
 # SQLite online backup reads WAL consistently; sanitized copy removes credentials.
 python3 "$root/scripts/export-data.py" "$path/kuma.db" "$stage/kuma.db"
