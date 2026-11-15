@@ -25,8 +25,24 @@ with tempfile.TemporaryDirectory(prefix='cloudlab-validate-') as directory:
             continue
         name = str(source.parent.relative_to(ROOT))
         rendered = run('kustomize', 'build', str(source.parent))
+        resources = [obj for obj in yaml.safe_load_all(rendered) if obj]
+        if name == 'secrets':
+            for obj in resources:
+                if obj.get('kind') != 'Secret':
+                    continue
+                metadata = obj.get('sops') or {}
+                if not metadata.get('age') or not metadata.get('mac'):
+                    raise ValueError(f"{obj['metadata']['name']}: missing SOPS age metadata")
+                for field in ('data', 'stringData'):
+                    for key, value in obj.get(field, {}).items():
+                        if not isinstance(value, str) or not value.startswith('ENC['):
+                            raise ValueError(f"{obj['metadata']['name']}: unencrypted field {field}.{key}")
+                        # Check the Kubernetes schema with a value valid for both data and stringData.
+                        obj[field][key] = ''
+                del obj['sops']
+            rendered = yaml.safe_dump_all(resources)
         manifests[name] = rendered
-        objects.extend(yaml.safe_load_all(rendered))
+        objects.extend(resources)
         print(f'Kustomize: {name}', flush=True)
     # Export only: no kubeconfig, API server or cluster mutation.
     manifests['flux-controllers'] = run('flux', 'install', '--export')
