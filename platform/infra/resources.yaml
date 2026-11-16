@@ -73,13 +73,9 @@ spec:
         enabled: true
         storageClassName: local-path
         size: 5Gi
-      additionalDataSources:
-      - name: Thanos
-        uid: thanos
-        type: prometheus
-        access: proxy
-        url: http://thanos-query.apps.svc.cluster.local:10902
-        editable: false
+      sidecar:
+        datasources:
+          url: http://thanos-query.apps.svc.cluster.local:10902
     prometheus:
       thanosService:
         enabled: true

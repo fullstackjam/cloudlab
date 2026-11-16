@@ -1,6 +1,6 @@
 # 监控与长期存储
 
-Prometheus 继续抓取并在本地保留 3 天或 8 GB。Thanos Sidecar 把已封口的 TSDB 块上传到 COS 的 `thanos/cloudlab/`，其中包括接入时仍保留的已压缩块。Thanos Store Gateway 从 COS 读历史数据。Thanos Query 统一查询 Sidecar 和 Store Gateway，Grafana 的 **Thanos** 数据源走这个入口。
+Prometheus 继续抓取并在本地保留 3 天或 8 GB。Thanos Sidecar 把已封口的 TSDB 块上传到 COS 的 `thanos/cloudlab/`，其中包括接入时仍保留的已压缩块。Thanos Store Gateway 从 COS 读历史数据。Thanos Query 统一查询 Sidecar 和 Store Gateway，Grafana 原有的 **Prometheus** 数据源走这个入口，名称和 UID 沿用原值。
 
 ## 凭据与保留
 
@@ -10,4 +10,4 @@ Prometheus 继续抓取并在本地保留 3 天或 8 GB。Thanos Sidecar 把已�
 
 ## 验证
 
-在 Grafana Explore 选 **Thanos**，用 `up` 查询近 15 分钟。再在接入前本地保留的时段查询同一个指标。独立验收 COS 时，用一个只连接 Store Gateway 的临时 Querier 查询该历史时间段，避免命中 Sidecar 的本地副本。Thanos 服务均使用集群内地址。
+在 Grafana Explore 选 **Prometheus**，用 `up` 查询近 15 分钟。再在接入前本地保留的时段查询同一个指标。独立验收 COS 时，用一个只连接 Store Gateway 的临时 Querier 查询该历史时间段，避免命中 Sidecar 的本地副本。Thanos 服务均使用集群内地址。
