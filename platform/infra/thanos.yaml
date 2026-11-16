@@ -75,6 +75,7 @@ spec:
         - --http-address=0.0.0.0:10902
         - --grpc-address=0.0.0.0:10901
         - --objstore.config-file=/etc/thanos/objstore.yml
+        - --sync-block-duration=2m
         - --data-dir=/var/thanos
         ports:
         - name: grpc
