@@ -1,6 +1,6 @@
 # CloudLab
 
-A single-node k3s environment on Tencent Cloud CVM. Flux syncs Kubernetes configuration from Git, and SOPS/age encrypts credentials. Cloudflare Tunnel provides HTTPS access. COS stores application backups and long-term Prometheus metrics.
+A single-node k3s environment managed with GitOps. Flux syncs Kubernetes configuration from Git, and SOPS/age encrypts credentials. Cloudflare Tunnel provides HTTPS access. COS stores application backups and long-term Prometheus metrics.
 
 ## Architecture
 
