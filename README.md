@@ -16,7 +16,7 @@ Repository:
 
 ## Local Git and validation
 
-The [Validate workflow](.github/workflows/validate.yml) runs on pull requests and pushes to `main`. It checks for tracked local deployment files, scans Git history and the checkout for credentials, and runs the same static validation as the local command below. The workflow needs public package and chart downloads and uses read-only repository access.
+The [Validate workflow](.github/workflows/validate.yml) runs on pull requests and pushes to `main`. It checks for tracked local deployment files, scans Git history and the checkout for credentials, and runs the same infrastructure validation and Kuma backup regression check as the local command below. The workflow needs public package and chart downloads and uses read-only repository access.
 
 This checkout uses a normal writable `.git` on branch `main`. Use plain `git` from this directory. `scripts/git-local` remains a compatibility alias for `git -C` at the repository root; it requires no alternate metadata directory.
 

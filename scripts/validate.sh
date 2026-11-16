@@ -23,3 +23,4 @@ tofu -chdir=infra fmt -check
 tofu -chdir=infra init -backend=false -input=false
 tofu -chdir=infra validate
 python3 scripts/validate-manifests.py
+python3 -B -m unittest discover -s tests -p 'test_*.py'
