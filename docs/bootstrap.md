@@ -1,6 +1,6 @@
 # CloudLab 从零部署
 
-完成后，CVM 上的 k3s 节点应为 `Ready`，Flux 应能从 GitHub 同步并解密 Secret，`https://whoami.fullstackjam.com` 应返回 HTTP 200。首次安装 k3s、创建云资源、生成凭据和配置 GitHub 同步各做一次。后续应用变更通过 Git 提交，由 Flux 同步。
+完成后，CVM 上的 k3s 节点应为 `Ready`，Flux 应能从 GitHub 同步并解密 Secret，`https://whoami.<domain>` 应返回 HTTP 200。首次安装 k3s、创建云资源、生成凭据和配置 GitHub 同步各做一次。后续应用变更通过 Git 提交，由 Flux 同步。
 
 ## 1. 准备 GitHub、主机和工具
 
@@ -13,6 +13,8 @@
 ## 2. 导入 CVM，创建 Tunnel
 
 在管理机的仓库根目录运行。已有部署先取回对应的 OpenTofu state 和变量，核对当前资源。首次部署时复制变量示例，填写腾讯云控制台中核实的 CVM、镜像、VPC 和子网 ID，以及备份桶名、受信任的 SSH CIDR、Cloudflare Account ID。备份桶名使用 COS 凭据对应的 APPID 后缀。
+
+在首次 plan 和部署前，修改 [集群配置](../clusters/cloudlab/settings.yaml) 中的 `CLOUDLAB_DOMAIN`。填入域名本身，例如 `example.com`。OpenTofu 用它生成 Tunnel ingress，Flux 用它生成 HTTPRoute、`HOMEPAGE_ALLOWED_HOSTS` 和 Homepage 链接。
 
 CVM 和安全组凭据通过 `TENCENTCLOUD_SECRET_ID` 和 `TENCENTCLOUD_SECRET_KEY` 注入。COS 桶管理凭据通过 `TF_VAR_cos_secret_id` 和 `TF_VAR_cos_secret_key` 单独注入。OpenTofu 通过 `CLOUDFLARE_API_TOKEN` 读取 Tunnel 管理 token。DNS 记录走 [dns-config](https://github.com/fullstackjam/dns-config)。
 
@@ -113,8 +115,6 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_S
 
 如果从已部署的仓库复制源码到另一个 GitHub 仓库，先在副本里把 `clusters/cloudlab/flux-system/gotk-components.yaml` 和 `gotk-sync.yaml` 恢复为注释占位文件，再用新部署的 age 公钥和凭据生成密文。推送这些改动后，Flux 会为新仓库生成控制器和同步清单。原仓库上的集群重建沿用已经提交的同步清单。
 
-使用自己的域名时，在首次计划和部署前对齐 [Tunnel ingress](../infra/main.tf) 和 [应用清单](../apps/resources.yaml) 中的 HTTPRoute、`HOMEPAGE_ALLOWED_HOSTS` 与 Homepage 链接。DNS 记录使用新的 Tunnel ID。
-
 ## 5. 执行一次 Flux bootstrap
 
 在管理机的仓库根目录，先用 kubeconfig 核对节点，确认 SSH 转发连接的是目标 CVM。GitHub PAT 通过 `GITHUB_TOKEN` 注入。通过 `SOPS_AGE_KEY_FILE` 提供私钥文件，或注入 `SOPS_AGE_KEY`。下面示例使用私钥文件，凭据库注入示例见 [凭据清单](secrets.md#注入引导凭据)。
@@ -144,11 +144,12 @@ kubectl -n infra logs deployment/cloudflared --tail=50
 
 ## 6. 验收公网入口和后续服务
 
-按 [DNS 与访问控制](dns.md) 核对现有记录。在 `dns-config` 的 `domains/fullstackjam.com.js` 中先为 `whoami` 加一条开启 Cloudflare 代理的 CNAME，目标是 `<TUNNEL_UUID>.cfargotunnel.com`。审查 PR 的 DNSControl preview，合并并发布后验证公网流量到达后端。
+按 [DNS 与访问控制](dns.md) 核对现有记录。在 `dns-config` 对应的区域文件中先为 `whoami` 加一条开启 Cloudflare 代理的 CNAME，目标是 `<TUNNEL_UUID>.cfargotunnel.com`。审查 PR 的 DNSControl preview，合并并发布后验证公网流量到达后端。
 
 ```bash
-dig +short whoami.fullstackjam.com
-curl -fsS -w '\nHTTP %{http_code}\n' https://whoami.fullstackjam.com/
+domain=example.com  # Use CLOUDLAB_DOMAIN from clusters/cloudlab/settings.yaml.
+dig +short "whoami.$domain"
+curl -fsS -w '\nHTTP %{http_code}\n' "https://whoami.$domain/"
 ```
 
 预期 HTTP 200，响应包含 whoami 返回的主机信息。其余入口先配好对应 Access 策略，再逐个放行。随后初始化 Kuma，按 [Apple Health 接入](apple-health.md) 验证一次写入，并按 [备份指南](backups.md) 完成一次独立恢复演练后再开启定时备份。

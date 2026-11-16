@@ -230,7 +230,7 @@ spec:
           periodSeconds: 10
         env:
         - name: HOMEPAGE_ALLOWED_HOSTS
-          value: home.fullstackjam.com
+          value: home.${CLOUDLAB_DOMAIN}
         volumeMounts:
         - name: config
           mountPath: /app/config/settings.yaml
@@ -276,9 +276,14 @@ data:
   settings.yaml: 'title: Jam CloudLab
 
     '
-  services.yaml: "- CloudLab:\n    - Status:\n        href: https://status.fullstackjam.com\n\
-    \    - Grafana:\n        href: https://grafana.fullstackjam.com\n    - Health:\n\
-    \        href: https://health.fullstackjam.com\n"
+  services.yaml: |
+    - CloudLab:
+        - Status:
+            href: https://status.${CLOUDLAB_DOMAIN}
+        - Grafana:
+            href: https://grafana.${CLOUDLAB_DOMAIN}
+        - Health:
+            href: https://health.${CLOUDLAB_DOMAIN}
   widgets.yaml: '[]
 
     '
@@ -303,7 +308,7 @@ spec:
     namespace: infra
     sectionName: web
   hostnames:
-  - whoami.fullstackjam.com
+  - whoami.${CLOUDLAB_DOMAIN}
   rules:
   - backendRefs:
     - name: whoami
@@ -320,7 +325,7 @@ spec:
     namespace: infra
     sectionName: web
   hostnames:
-  - status.fullstackjam.com
+  - status.${CLOUDLAB_DOMAIN}
   rules:
   - backendRefs:
     - name: uptime-kuma
@@ -337,7 +342,7 @@ spec:
     namespace: infra
     sectionName: web
   hostnames:
-  - health.fullstackjam.com
+  - health.${CLOUDLAB_DOMAIN}
   rules:
   - backendRefs:
     - name: influxdb
@@ -354,7 +359,7 @@ spec:
     namespace: infra
     sectionName: web
   hostnames:
-  - home.fullstackjam.com
+  - home.${CLOUDLAB_DOMAIN}
   rules:
   - backendRefs:
     - name: homepage
@@ -371,7 +376,7 @@ spec:
     namespace: infra
     sectionName: web
   hostnames:
-  - grafana.fullstackjam.com
+  - grafana.${CLOUDLAB_DOMAIN}
   rules:
   - backendRefs:
     - name: monitoring-grafana

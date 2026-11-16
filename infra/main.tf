@@ -1,4 +1,8 @@
 # Adoption only: no cloud-init or disk mutations on the running node.
+locals {
+  domain = yamldecode(file("${path.module}/../clusters/cloudlab/settings.yaml")).data.CLOUDLAB_DOMAIN
+}
+
 import {
   to = tencentcloud_instance.cloudlab
   id = var.instance_id
@@ -60,7 +64,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "cloudlab" {
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.cloudlab.id
   config = {
     ingress = [
-      { hostname = "*.fullstackjam.com", service = "http://traefik.infra.svc.cluster.local:80" },
+      { hostname = "*.${local.domain}", service = "http://traefik.infra.svc.cluster.local:80" },
       { service = "http_status:404" }
     ]
   }

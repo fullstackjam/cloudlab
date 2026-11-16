@@ -85,3 +85,7 @@ spec:
   dependsOn:
   - name: infra
   - name: secrets
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cloudlab-settings

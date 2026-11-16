@@ -26,6 +26,8 @@ The validation toolchain uses OpenTofu 1.13.9, Kustomize 5.8.3, Helm 3.19.2, Flu
 
 Follow the [bootstrap runbook](docs/bootstrap.md) to prepare the CVM, cloud resources and SOPS credentials, initialize Flux, and verify the first public route.
 
+Set `CLOUDLAB_DOMAIN` in [clusters/cloudlab/settings.yaml](clusters/cloudlab/settings.yaml). OpenTofu reads it for the Tunnel ingress. Flux uses the same value for the application hostnames and Homepage links.
+
 ## Rebuild and upgrades
 Recover 1Password first (age identity, Git access, COS key, restic password, Terraform state and infrastructure IDs). On a deliberately provisioned replacement Ubuntu node, attach/mount `/data` without formatting, install the reviewed k3s configuration with built-in Traefik/ServiceLB disabled, bootstrap Flux from the same repository, restore sanitized application data using the isolated drill procedure, then restore UI credentials/integrations from 1Password. Keep old node stopped only after validating replacement, and explicitly decide whether a reused disk's old k3s server directory should be archived; never start two servers against it. Rotate the Tunnel token when rebuilding connector access. Review Terraform import/state separately before any cloud change.
 

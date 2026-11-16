@@ -1,15 +1,15 @@
 # DNS and exposure
-Proposed proxied CNAME records, each targeting `<NEW_TUNNEL_UUID>.cfargotunnel.com`:
+Use the domain set in [clusters/cloudlab/settings.yaml](../clusters/cloudlab/settings.yaml) for the proxied CNAMEs below. Each record targets `<TUNNEL_UUID>.cfargotunnel.com`.
 
 | Full record | Destination |
 |---|---|
-| whoami.fullstackjam.com | whoami test |
-| status.fullstackjam.com | Kuma UI/public status pages |
-| grafana.fullstackjam.com | Grafana |
-| health.fullstackjam.com | InfluxDB UI and Apple Health write API |
-| home.fullstackjam.com | Homepage |
+| `whoami.<domain>` | whoami test |
+| `status.<domain>` | Kuma UI/public status pages |
+| `grafana.<domain>` | Grafana |
+| `health.<domain>` | InfluxDB UI and Apple Health write API |
+| `home.<domain>` | Homepage |
 
-Add the CNAMEs to `domains/fullstackjam.com.js` in [dns-config](https://github.com/fullstackjam/dns-config). Use the Tunnel UUID from OpenTofu as the target, enable Cloudflare proxying, and review the DNSControl preview on the PR before merging. Start with `whoami`, then add the remaining entries after verifying their access policies.
+Add the CNAMEs to the matching zone file in [dns-config](https://github.com/fullstackjam/dns-config). The reference deployment uses `domains/fullstackjam.com.js`. Use the Tunnel UUID from OpenTofu as the target, enable Cloudflare proxying, and review the DNSControl preview on the PR before merging. Start with `whoami`, then add the remaining entries after verifying their access policies. When changing the base domain, apply the Tunnel ingress change and verify the new HTTPRoutes before publishing DNS for the new names.
 
 TLS terminates at Cloudflare; encrypted Tunnel connects Cloudflare to cloudflared; HTTP remains within the single-node cluster to Traefik. No public inbound 80/443/6443 required. New SG allows trusted IPv4 SSH + outbound; it is NOT automatically attached. Audit current SG/IPv6, preserve emergency SSH, then attach deliberately. Tunnel egress needs DNS and TCP/UDP 7844 plus HTTPS for downloads/APIs. kube API stays private; use an SSH forward for remote administration.
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render every root and HelmRelease; validate using built-in and actual CRD schemas."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -25,6 +26,11 @@ with tempfile.TemporaryDirectory(prefix='cloudlab-validate-') as directory:
             continue
         name = str(source.parent.relative_to(ROOT))
         rendered = run('kustomize', 'build', str(source.parent))
+        if name == 'apps':
+            settings = yaml.safe_load((ROOT / 'clusters/cloudlab/settings.yaml').read_text())['data']
+            rendered = subprocess.check_output(
+                ['flux', 'envsubst', '--strict'], input=rendered, text=True,
+                env={'PATH': os.environ['PATH'], **settings})
         resources = [obj for obj in yaml.safe_load_all(rendered) if obj]
         if name == 'secrets':
             for obj in resources:
