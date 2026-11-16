@@ -282,8 +282,8 @@ data:
             href: https://status.${CLOUDLAB_DOMAIN}
         - Grafana:
             href: https://grafana.${CLOUDLAB_DOMAIN}
-        - Health:
-            href: https://health.${CLOUDLAB_DOMAIN}
+        - InfluxDB:
+            href: https://influxdb.${CLOUDLAB_DOMAIN}
   widgets.yaml: '[]
 
     '
@@ -334,7 +334,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: health
+  name: influxdb
   namespace: apps
 spec:
   parentRefs:
@@ -342,6 +342,7 @@ spec:
     namespace: infra
     sectionName: web
   hostnames:
+  - influxdb.${CLOUDLAB_DOMAIN}
   - health.${CLOUDLAB_DOMAIN}
   rules:
   - backendRefs:
