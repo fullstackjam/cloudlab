@@ -34,7 +34,12 @@ class KumaExportTest(unittest.TestCase):
                     INSERT INTO monitor VALUES (1, 'test', 'https://name:demo@example.org/status?check=demo', ' fixture ', '2c');
                 """)
             subprocess.run(
-                [sys.executable, str(ROOT / "infra" / "backup" / "export-kuma.py"), str(source), str(exported)],
+                [
+                    sys.executable,
+                    str(ROOT / "infra" / "backup" / "export-kuma.py"),
+                    str(source),
+                    str(exported),
+                ],
                 check=True,
             )
             with closing(sqlite3.connect(exported)) as db:
@@ -43,10 +48,20 @@ class KumaExportTest(unittest.TestCase):
                     dict(db.execute("SELECT key, value FROM setting")),
                     {"database_version": "10", "databasePatchedFiles": "{}"},
                 )
-                self.assertEqual(db.execute("SELECT COUNT(*) FROM user").fetchone(), (0,))
-                self.assertEqual(db.execute("SELECT name FROM knex_migrations").fetchone(), ("001-test.js",))
-                self.assertEqual(db.execute("SELECT is_locked FROM knex_migrations_lock").fetchone(), (0,))
                 self.assertEqual(
-                    db.execute("SELECT name, url, password, snmp_version FROM monitor").fetchone(),
+                    db.execute("SELECT COUNT(*) FROM user").fetchone(), (0,)
+                )
+                self.assertEqual(
+                    db.execute("SELECT name FROM knex_migrations").fetchone(),
+                    ("001-test.js",),
+                )
+                self.assertEqual(
+                    db.execute("SELECT is_locked FROM knex_migrations_lock").fetchone(),
+                    (0,),
+                )
+                self.assertEqual(
+                    db.execute(
+                        "SELECT name, url, password, snmp_version FROM monitor"
+                    ).fetchone(),
                     ("test", "https://example.org/status", "", "2c"),
                 )

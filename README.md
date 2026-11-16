@@ -9,7 +9,6 @@ flowchart LR
     Git[Git 仓库] --> Flux
     Flux --> Platform[入口与监控组件]
     Flux --> Apps[应用服务]
-    Flux --> Secrets[SOPS 解密]
     Tunnel[Cloudflare Tunnel] --> Traefik
     Traefik --> Apps
     iPhone --> Ingest[Health Auto Export 接收器]
@@ -18,9 +17,11 @@ flowchart LR
     IngestInflux --> InfluxDB
     MongoDB --> API[官方查询 API]
     API --> Grafana
-    Prometheus --> Thanos
-    Thanos --> COS
-    Thanos --> Grafana
+    Prometheus -->|Sidecar 上传数据块| COS
+    Grafana -->|指标查询| Query[Thanos Query]
+    Query -->|Sidecar| Prometheus
+    Query --> Store[Thanos Store Gateway]
+    Store --> COS
     Backup[主机定时备份] --> COS
 ```
 
@@ -31,14 +32,14 @@ flowchart LR
 | 目录 | 职责 |
 | --- | --- |
 | [infra/](infra/) | 云资源与集群引导。根下是 OpenTofu，`bootstrap.sh` 安装 Flux；`flux/` 声明同步入口、依赖和共享设置；`backup/` 放主机备份、恢复脚本及 systemd 定时任务 |
-| [platform/](platform/) | 集群公共组件。`traefik/`、`cloudflared/`、`monitoring/`、`thanos/` 各自保存清单和所需密文；Gateway API CRD 位于 `traefik/crds/` |
+| [platform/](platform/) | Traefik、cloudflared、kube-prometheus-stack 和 Thanos；Gateway API CRD 位于 `traefik/crds/` |
 | [apps/](apps/) | 应用服务。每个服务独立一个目录，包含工作负载、Service、PVC、配置、HTTPRoute 和所需密文；Health Auto Export 的 MongoDB 放在该应用目录内 |
 | [scripts/](scripts/) | 仓库校验工具与 `tests/` 回归用例 |
 | [docs/](docs/) | 部署、凭据、DNS、监控、Apple Health 和恢复操作指南 |
 
-组件与应用目录中的 `source.yaml` 定义所需 Helm 仓库，`resources.yaml` 保存普通资源，`secrets/` 保存 SOPS 密文和凭据示例；目录自己的 `kustomization.yaml` 聚合这些资源。Grafana 的面板、数据源凭据与入口集中在 `platform/monitoring/`。
+每个组件的 `kustomization.yaml` 列出部署资源。`source.yaml` 定义 Helm 仓库，`resources.yaml` 保存工作负载或 HelmRelease，`*.sops.yaml` 和 `*.example.yaml` 分别保存加密凭据和填写示例，直接放在组件目录中。
 
-Flux 按 `gateway-crds → platform → apps` 同步。Gateway API CRD 必须先于 Traefik 和 HTTPRoute 创建；platform 就绪后部署应用。platform 和 apps 各自解密所管理的 Secret，并从共享设置读取域名。Grafana 路由、面板与数据源统一由 monitoring 组件管理。
+Flux 按 `gateway-crds → platform → apps` 同步。Gateway API CRD 必须先于 Traefik 和 HTTPRoute 创建；platform 就绪后部署应用。platform 和 apps 各自解密 Secret，并从共享设置读取域名。`kube-prometheus-stack` 部署 Prometheus、Alertmanager、Grafana 和采集组件，也管理 Grafana 的路由、面板和数据源。
 
 `infra/flux/settings.yaml` 中的 `CLOUDLAB_DOMAIN` 同时供 OpenTofu、应用 HTTPRoute 和 Homepage 使用。公网 DNS 记录由 [dns-config](https://github.com/fullstackjam/dns-config) 管理。
 
@@ -65,4 +66,4 @@ Flux 按 `gateway-crds → platform → apps` 同步。Gateway API CRD 必须先
 
 ## 许可证
 
-[Apache-2.0](LICENSE)。上游面板的版权与许可保存在对应资源旁。
+[Apache-2.0](LICENSE)。部署的第三方软件和面板遵循各自的许可证。

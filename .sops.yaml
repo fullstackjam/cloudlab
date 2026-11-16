@@ -1,4 +1,4 @@
 creation_rules:
-  - path_regex: ^(apps|platform)/.+/secrets/.*\.sops\.yaml$
+  - path_regex: ^(apps|platform)/[^/]+/[^/]+\.sops\.yaml$
     encrypted_regex: ^(data|stringData)$
     age: age1t9jwm4eltg9830989j9qjefkzcexhvman6uylhamh9826t407pesn5s0ac

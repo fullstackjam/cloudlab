@@ -1,5 +1,5 @@
 #cloud-config
-# FRESH REBUILD ONLY. Supply via user_data_raw only on a deliberately new node.
+# Use on a new node. Mount /data before running cloudlab-install.
 package_update: true
 packages: [curl, ca-certificates, jq, restic, sqlite3]
 write_files:
@@ -17,11 +17,10 @@ write_files:
     content: |
       #!/bin/bash
       set -euo pipefail
-      mountpoint -q /data || { echo 'Mount recovered data disk first'; exit 1; }
+      mountpoint -q /data || { echo 'Mount the data disk at /data first'; exit 1; }
       test "$(findmnt -n -o FSTYPE /data)" = ext4
       mkdir -p /data/k3s/storage
-      # Review/update pinned release during rebuild; never pipe to shell unseen.
       curl -fL https://get.k3s.io -o /root/install-k3s.sh
       INSTALL_K3S_VERSION=v1.34.1+k3s1 sh /root/install-k3s.sh
 runcmd:
-  - [bash, -c, 'echo "Base tools ready. Mount/recover /data, then manually run /usr/local/sbin/cloudlab-install"']
+  - [bash, -c, 'echo "Mount /data, then run /usr/local/sbin/cloudlab-install"']

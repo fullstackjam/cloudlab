@@ -2,9 +2,9 @@
 set -euo pipefail
 umask 077
 : "${RESTIC_REPOSITORY:?COS S3 endpoint/bucket/restic/cloudlab}"
-: "${RESTIC_PASSWORD:?1Password}"
-: "${AWS_ACCESS_KEY_ID:?1Password COS access key}"
-: "${AWS_SECRET_ACCESS_KEY:?1Password COS secret key}"
+: "${RESTIC_PASSWORD:?Set the restic repository password}"
+: "${AWS_ACCESS_KEY_ID:?Set the COS backup access key}"
+: "${AWS_SECRET_ACCESS_KEY:?Set the COS backup secret key}"
 export AWS_DEFAULT_REGION=na-ashburn RESTIC_CACHE_DIR=/data/backup-cache
 script_dir=$(cd "$(dirname "$0")" && pwd)
 context=${CLOUDLAB_KUBE_CONTEXT:-$(kubectl config current-context)}

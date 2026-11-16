@@ -1,4 +1,4 @@
-# Adoption only: no cloud-init or disk mutations on the running node.
+# Import the existing instance without changing its configuration or disks.
 locals {
   domain = yamldecode(file("${path.module}/flux/settings.yaml")).data.CLOUDLAB_DOMAIN
 }
@@ -20,7 +20,7 @@ resource "tencentcloud_instance" "cloudlab" {
     ignore_changes  = all
   }
 }
-# Not attached automatically: preserve current SSH access and existing SGs.
+# Attach this group manually after checking the existing SSH rules.
 resource "tencentcloud_security_group" "cloudlab" {
   name        = "cloudlab"
   description = "Single node: SSH from trusted IP; tunnel egress; no public Kubernetes"
@@ -47,7 +47,7 @@ resource "tencentcloud_cos_bucket" "backups" {
   versioning_enable = true
   force_clean       = false
   lifecycle { prevent_destroy = true }
-  # Restic owns retention; NEVER expire current pack objects by age.
+  # Restic manages live objects; expire only deleted object versions here.
   lifecycle_rules {
     id            = "restic-noncurrent-35d"
     filter_prefix = "restic/"

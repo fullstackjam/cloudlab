@@ -111,15 +111,13 @@ chmod 0600 .local/kubeconfig-cloudlab
 ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_SSH"
 ```
 
-首次部署按 [SOPS 加密步骤](secrets.md#生成并提交密文) 生成和备份 age 身份，填齐三个应用 Secret，再推送密文和它的 Kustomize 引用。重建时使用 Git 中已有的密文与对应的 age 私钥。若 Tunnel connector token 已轮换，先更新密文并推送。
+首次部署按 [SOPS 加密步骤](secrets.md#生成并提交密文) 生成和备份 age 身份，按凭据清单准备所有启用组件的 Secret，再推送密文和它的 Kustomize 引用。重建时使用 Git 中已有的密文与对应的 age 私钥。若 Tunnel connector token 已轮换，先更新密文并推送。
 
 如果从已部署的仓库复制源码到另一个 GitHub 仓库，先在副本里把 `infra/flux/flux-system/gotk-components.yaml` 和 `gotk-sync.yaml` 恢复为注释占位文件，再用新部署的 age 公钥和凭据生成密文。推送这些改动后，Flux 会为新仓库生成控制器和同步清单。原仓库上的集群重建沿用已经提交的同步清单。
 
 需要 InfluxDB 导入链路时，全新环境先从 `apps/kustomization.yaml` 移除 Apple Health 接收器目录，接收器的密文随组件一起停用。InfluxDB 就绪后，按 [Apple Health 接入](apple-health.md#iphone-自动导入到-influxdb) 生成写入 token，添加密文和引用，再启用接收器。
 
-副本部署按 [监控与长期存储](monitoring.md) 准备 Thanos 的 COS 前缀和凭据，再用本次部署的 age 公钥加密对象存储配置。
-
-按同一份监控文档填写 Alertmanager 的通知配置，并用本次部署的 age 公钥重新加密。
+按 [监控与长期存储](monitoring.md) 准备 Thanos 的 COS 凭据和 Alertmanager 通知配置。启用官方 Health Auto Export 时，还需按 [接入文档](apple-health.md#health-auto-export-官方面板) 准备 MongoDB、API 和 Grafana 数据源凭据。所有密文使用本次部署的 age 公钥。
 
 ## 5. 执行一次 Flux bootstrap
 
@@ -127,23 +125,24 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_S
 
 ```bash
 export KUBECONFIG="$PWD/.local/kubeconfig-cloudlab"
-kubectl get nodes -o wide
+export CLOUDLAB_KUBE_CONTEXT=default
+kubectl --context "$CLOUDLAB_KUBE_CONTEXT" get nodes -o wide
 GITHUB_REPOSITORY=fullstackjam/cloudlab SOPS_AGE_KEY_FILE="$PWD/.local/age.agekey" ./infra/bootstrap.sh
 ```
 
 将 `GITHUB_REPOSITORY` 换成目标仓库的 `OWNER/REPO`。已有 GitHub `origin` 的 checkout 也支持只传仓库名，脚本从 `origin` 取 owner。组织仓库设置 `GITHUB_PERSONAL=false`。
 
-脚本先本地验证密文可解，再创建命名空间和 `flux-system/sops-age`，最后安装 Flux、登记 deploy key，并把生成的 `gotk-components.yaml` 和 `gotk-sync.yaml` 提交到 GitHub。后续同步使用集群内的 deploy key。GitHub PAT 过期或撤销后，若 deploy key 失效，按官方流程轮换。 [Flux deploy key 轮换](https://fluxcd.io/flux/installation/bootstrap/github/#deploy-key-rotation)
+脚本先本地验证三个基础 Secret（Tunnel、Grafana、InfluxDB）的密文可解，再创建命名空间和 `flux-system/sops-age`，最后安装 Flux、登记 deploy key，并把生成的 `gotk-components.yaml` 和 `gotk-sync.yaml` 提交到 GitHub。后续同步使用集群内的 deploy key。GitHub PAT 过期或撤销后，若 deploy key 失效，按官方流程轮换。 [Flux deploy key 轮换](https://fluxcd.io/flux/installation/bootstrap/github/#deploy-key-rotation)
 
 ```bash
 git pull --ff-only
-flux get sources git -A
-flux get kustomizations -A
-flux get helmreleases -A
-kubectl get pods,pvc -A
-kubectl get gateway,httproute -A
-kubectl -n apps describe httproute whoami
-kubectl -n infra logs deployment/cloudflared --tail=50
+flux --context "$CLOUDLAB_KUBE_CONTEXT" get sources git -A
+flux --context "$CLOUDLAB_KUBE_CONTEXT" get kustomizations -A
+flux --context "$CLOUDLAB_KUBE_CONTEXT" get helmreleases -A
+kubectl --context "$CLOUDLAB_KUBE_CONTEXT" get pods,pvc -A
+kubectl --context "$CLOUDLAB_KUBE_CONTEXT" get gateway,httproute -A
+kubectl --context "$CLOUDLAB_KUBE_CONTEXT" -n apps describe httproute whoami
+kubectl --context "$CLOUDLAB_KUBE_CONTEXT" -n infra logs deployment/cloudflared --tail=50
 ```
 
 确认 GitRepository 同步到预期提交，`gateway-crds`、`platform`、`apps` 均为 `Ready`，HelmRelease 已就绪且 PVC 已绑定。检查 Gateway 已编程，HTTPRoute 的 `Accepted` 和 `ResolvedRefs` 为 `True`，Cloudflare 控制台显示 Tunnel 已连接。
@@ -158,4 +157,4 @@ dig +short "whoami.$domain"
 curl -fsS -w '\nHTTP %{http_code}\n' "https://whoami.$domain/"
 ```
 
-预期 HTTP 200，响应包含 whoami 返回的主机信息。其余入口先配好对应 Access 策略，再逐个放行。随后初始化 Kuma，按 [Apple Health 接入](apple-health.md) 验证一次写入，并按 [备份指南](backups.md) 完成一次独立恢复演练后再开启定时备份。
+预期 HTTP 200，响应包含 whoami 返回的主机信息。其余入口按 [认证说明](dns.md#认证) 核对访问方式，再发布 DNS。随后初始化 Kuma，按 [Apple Health 接入](apple-health.md) 验证一次写入，并按 [备份指南](backups.md) 完成一次独立恢复演练后再开启定时备份。

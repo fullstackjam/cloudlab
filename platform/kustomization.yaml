@@ -4,5 +4,5 @@ resources:
 - namespaces.yaml
 - traefik
 - cloudflared
-- monitoring
+- kube-prometheus-stack
 - thanos

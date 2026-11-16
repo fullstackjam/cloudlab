@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-: "${GITHUB_TOKEN:?New GitHub token required}"
+: "${GITHUB_TOKEN:?Set the GitHub bootstrap token}"
 : "${GITHUB_REPOSITORY:?Set GITHUB_REPOSITORY to OWNER/REPO}"
 : "${KUBECONFIG:?Set the kubeconfig path for CloudLab}"
 github_repository=$GITHUB_REPOSITORY
@@ -19,9 +19,9 @@ command -v flux >/dev/null
 command -v kubectl >/dev/null
 command -v sops >/dev/null
 bootstrap_credentials=(
-  platform/cloudflared/secrets/credentials.sops.yaml
-  platform/monitoring/secrets/credentials.sops.yaml
-  apps/influxdb/secrets/credentials.sops.yaml
+  platform/cloudflared/credentials.sops.yaml
+  platform/kube-prometheus-stack/grafana-admin.sops.yaml
+  apps/influxdb/credentials.sops.yaml
 )
 if [[ -n ${SOPS_AGE_KEY_FILE:-} ]]; then
   age_key=$(< "$SOPS_AGE_KEY_FILE")
@@ -33,7 +33,6 @@ for credentials in "${bootstrap_credentials[@]}"; do
   SOPS_AGE_KEY="$age_key" sops decrypt "$credentials" >/dev/null
 done
 flux check --pre
-# Apply generated manifests server-side to keep bootstrap lightweight over SSH.
 for ns in infra apps flux-system; do
   kubectl create namespace "$ns" --dry-run=client -o yaml |
     kubectl apply --server-side --validate=false -f -

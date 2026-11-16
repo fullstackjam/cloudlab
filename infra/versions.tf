@@ -18,4 +18,4 @@ provider "tencentcloud" {
   secret_id  = trimspace(var.cos_secret_id)
   secret_key = trimspace(var.cos_secret_key)
 }
-provider "cloudflare" {} # CLOUDFLARE_API_TOKEN from 1Password
+provider "cloudflare" {} # Reads CLOUDFLARE_API_TOKEN from the environment.
