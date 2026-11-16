@@ -53,8 +53,13 @@ def verify(settings):
     metrics = [source for source in sources if source["type"] == "prometheus"]
     if len(metrics) != 1 or metrics[0]["url"] != "http://thanos-query.apps.svc.cluster.local:10902":
         raise RuntimeError("Grafana must have one Prometheus datasource pointing to Thanos Query")
+    official = {"Health Metrics", "Workouts Table", "Workout Details"}
+    loaded = {dashboard["title"] for dashboard in dashboards if dashboard.get("folderTitle") == "Health Auto Export"}
+    if not official.issubset(loaded):
+        raise RuntimeError("The official Health Auto Export dashboards are missing")
     report["grafana_dashboards"] = len(dashboards)
     report["provisioned_dashboards_present"] = True
+    report["official_health_dashboards"] = sorted(official)
 
     token = base64.b64decode(get("secret", "health-auto-export")["data"]["read-token"]).decode()
     values = api("health-auto-export", 3001, "/api/metrics/step_count", {"api-key": token})

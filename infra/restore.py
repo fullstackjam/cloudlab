@@ -284,8 +284,11 @@ else:raise SystemExit('Flux did not converge to the expected revision')
         self.upload()
         payload = {"data_report": self.state["data_report"], "kuma": {
             "username": self.env["KUMA_USERNAME"], "password": self.env["KUMA_PASSWORD"]}}
-        self.ssh("KUBECONFIG=/etc/rancher/k3s/k3s.yaml python3 /opt/cloudlab-restore/verify-services.py",
-                 data=json.dumps(payload))
+        report = self.ssh("KUBECONFIG=/etc/rancher/k3s/k3s.yaml python3 /opt/cloudlab-restore/verify-services.py",
+                          data=json.dumps(payload), quiet=True)
+        self.state["service_report"] = json.loads(report)
+        self.save()
+        print(report)
 
     def activate(self):
         if self.state["branch"] == "main":
