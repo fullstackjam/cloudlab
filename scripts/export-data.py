@@ -5,6 +5,8 @@ src,out=sys.argv[1:]
 a=sqlite3.connect('file:'+src+'?mode=ro',uri=True); b=sqlite3.connect(out);a.backup(b);a.close()
 # Retain only monitoring history/public status content; schema changes fail closed.
 keep={'monitor','heartbeat','stat_daily','stat_hourly','stat_minutely','status_page','monitor_group','group','incident','maintenance','monitor_maintenance','maintenance_status_page','monitor_status_page','status_page_cname','monitor_tag','tag'}
+# Kuma 2 uses Knex's migration history to open an already migrated database.
+keep.update({'knex_migrations','knex_migrations_lock'})
 for (table,) in b.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall():
  if table.startswith('sqlite_'):continue
  quoted='"'+table.replace('"','""')+'"'
@@ -15,7 +17,7 @@ for (table,) in b.execute("SELECT name FROM sqlite_master WHERE type='table'").f
   continue
  if table not in keep:b.execute('DELETE FROM '+quoted);continue
  if table=='monitor':
-  allowed={'id','name','active','type','interval','retry_interval','resend_interval','maxretries','weight','upside_down','accepted_statuscodes_json','method','hostname','port','url','description'}
+  allowed={'id','name','active','type','interval','retry_interval','resend_interval','maxretries','weight','upside_down','accepted_statuscodes_json','method','hostname','port','url','description','snmp_version'}
   for col in b.execute('PRAGMA table_info('+quoted+')').fetchall():
    name=col[1]
    if name not in allowed:

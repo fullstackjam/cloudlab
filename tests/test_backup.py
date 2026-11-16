@@ -23,8 +23,15 @@ class KumaExportTest(unittest.TestCase):
                     INSERT INTO setting VALUES (3, 'jwtSecret', ' fixture ', 'general');
                     CREATE TABLE user (id INTEGER PRIMARY KEY, password TEXT);
                     INSERT INTO user VALUES (1, ' fixture ');
-                    CREATE TABLE monitor (id INTEGER PRIMARY KEY, name TEXT, url TEXT, password TEXT);
-                    INSERT INTO monitor VALUES (1, 'test', 'https://name:demo@example.org/status?check=demo', ' fixture ');
+                    CREATE TABLE knex_migrations (id INTEGER PRIMARY KEY, name TEXT);
+                    INSERT INTO knex_migrations VALUES (1, '001-test.js');
+                    CREATE TABLE knex_migrations_lock (id INTEGER PRIMARY KEY, is_locked INTEGER);
+                    INSERT INTO knex_migrations_lock VALUES (1, 0);
+                    CREATE TABLE monitor (
+                        id INTEGER PRIMARY KEY, name TEXT, url TEXT, password TEXT,
+                        snmp_version TEXT CHECK (snmp_version IN ('1', '2c', '3'))
+                    );
+                    INSERT INTO monitor VALUES (1, 'test', 'https://name:demo@example.org/status?check=demo', ' fixture ', '2c');
                 """)
             subprocess.run(
                 [sys.executable, str(ROOT / "scripts" / "export-data.py"), str(source), str(exported)],
@@ -37,7 +44,9 @@ class KumaExportTest(unittest.TestCase):
                     {"database_version": "10", "databasePatchedFiles": "{}"},
                 )
                 self.assertEqual(db.execute("SELECT COUNT(*) FROM user").fetchone(), (0,))
+                self.assertEqual(db.execute("SELECT name FROM knex_migrations").fetchone(), ("001-test.js",))
+                self.assertEqual(db.execute("SELECT is_locked FROM knex_migrations_lock").fetchone(), (0,))
                 self.assertEqual(
-                    db.execute("SELECT name, url, password FROM monitor").fetchone(),
-                    ("test", "https://example.org/status", ""),
+                    db.execute("SELECT name, url, password, snmp_version FROM monitor").fetchone(),
+                    ("test", "https://example.org/status", "", "2c"),
                 )
