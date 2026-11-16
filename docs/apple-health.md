@@ -104,4 +104,4 @@ datasources:
 
 iPhone 可以复制现有的 **Health Metrics** 和 **Workouts** 自动化，各自指向 `https://health-ingest.<domain>/api/data`。两条都使用 JSON，并设置 `api-key` 为写入 token。先用 **Manual Upload** 上传一个短时间段，再打开对应面板核对。原有上传路径与官方面板的上传路径可以同时使用。
 
-公网入口只转发 `POST /api/data`。Grafana 使用读取 token，在集群内查询官方服务。MongoDB 使用单节点持久卷，现有 COS 备份任务只覆盖原 InfluxDB bucket 和 Kuma 数据。
+公网入口只转发 `POST /api/data`。Grafana 使用读取 token，在集群内查询官方服务。MongoDB 使用单节点持久卷，应用数据库每天随 InfluxDB 和 Kuma 数据一起加密备份到 COS。恢复步骤见 [备份指南](backups.md)。

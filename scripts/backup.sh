@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 : "${RESTIC_REPOSITORY:?COS S3 endpoint/bucket/restic/cloudlab}"
 : "${RESTIC_PASSWORD:?1Password}"
 : "${AWS_ACCESS_KEY_ID:?1Password COS access key}"
@@ -25,6 +26,14 @@ path=$(kubectl --context "$context" get pv "$claim" -o jsonpath='{.spec.local.pa
 [[ $path == /data/k3s/storage/* ]] || { echo 'Unexpected PV path'; exit 1; }
 # SQLite online backup reads WAL consistently; sanitized copy removes credentials.
 python3 "$root/scripts/export-data.py" "$path/kuma.db" "$stage/kuma.db"
+# Export application BSON and indexes, excluding MongoDB users and roles.
+# The password is passed through an anonymous pipe, never a command argument.
+kubectl --context "$context" -n apps exec health-auto-export-mongo-0 -c mongo -- bash -ec '
+  mongodump --host 127.0.0.1 --username health-auto-export --authenticationDatabase admin \
+    --config=<(printf "password: %s\n" "$MONGO_APP_PASSWORD") \
+    --db health-auto-export --archive --gzip
+' > "$stage/health-auto-export.archive.gz"
+gzip -t "$stage/health-auto-export.archive.gz"
 restic "${restic_args[@]}" backup "$stage" --tag cloudlab --host cloudlab
 restic "${restic_args[@]}" forget --tag cloudlab --host cloudlab --group-by host,tags --keep-within 30d --prune
 restic "${restic_args[@]}" check --read-data-subset=5%
