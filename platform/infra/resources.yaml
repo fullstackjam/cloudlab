@@ -18,16 +18,19 @@ spec:
   chart:
     spec:
       chart: traefik
-      version: 37.1.1
+      version: 42.4.0
       sourceRef:
         kind: HelmRepository
         name: traefik
         namespace: flux-system
+  upgrade:
+    crds: CreateReplace
   values:
     deployment:
       replicas: 1
     service:
-      type: ClusterIP
+      spec:
+        type: ClusterIP
     providers:
       kubernetesGateway:
         enabled: true
@@ -38,9 +41,8 @@ spec:
           port: 8000
           namespacePolicy:
             from: All
-    logs:
-      general:
-        level: INFO
+    log:
+      level: INFO
     resources:
       requests:
         cpu: 100m

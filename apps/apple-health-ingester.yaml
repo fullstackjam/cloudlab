@@ -16,7 +16,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: ingester
-        image: irvinlim/apple-health-ingester@sha256:f45183a4ddb477abb42d2bc33db28a19612ae555e2a9643dc9684a2461aa827d
+        image: irvinlim/apple-health-ingester:v0.5.0@sha256:f0072cade435b7f47bc3dbb8425288ec961cc5cd91a5473d799aabc2bc319bce
         args:
         - --backend.influxdb
         - --http.listenAddr=:8080
