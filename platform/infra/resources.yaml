@@ -63,7 +63,23 @@ spec:
         kind: HelmRepository
         name: prometheus-community
         namespace: flux-system
+  postRenderers:
+  - kustomize:
+      patches:
+      - target:
+          group: monitoring.coreos.com
+          version: v1
+          kind: Alertmanager
+        # Let the operator copy the native configuration without parsing it.
+        patch: |
+          - op: remove
+            path: /spec/alertmanagerConfigSelector
   values:
+    defaultRules:
+      disabled:
+        KubeControllerManagerDown: true
+        KubeProxyDown: true
+        KubeSchedulerDown: true
     grafana:
       admin:
         existingSecret: grafana-admin
@@ -113,7 +129,29 @@ spec:
                 requests:
                   storage: 12Gi
     alertmanager:
-      enabled: false
+      enabled: true
+      alertmanagerSpec:
+        image:
+          registry: quay.io
+          repository: prometheus/alertmanager
+          tag: v0.35.0
+        useExistingSecret: true
+        configSecret: cloudlab-alertmanager
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
