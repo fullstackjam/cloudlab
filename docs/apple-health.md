@@ -1,26 +1,26 @@
-# Apple Health 接入
+# Apple Health
 
-CloudLab 支持两条 Apple Health 导入链路，接收地址决定数据进入哪个数据库。
+CloudLab supports two Apple Health import paths. The upload endpoint determines which database receives the data.
 
-| 用途 | 上传路径 | 服务清单 | 存储与面板 |
+| Purpose | Upload path | Service manifests | Storage and dashboards |
 | --- | --- | --- | --- |
-| 官方 Health Auto Export 面板 | `/api/data` | [接收器清单](../apps/health-auto-export/resources.yaml) 和 [MongoDB 清单](../apps/health-auto-export/mongodb.yaml) | MongoDB，官方三个面板 |
-| InfluxDB 数据导入 | `/api/healthautoexport/v1/influxdb/ingest` | [InfluxDB 接收器清单](../apps/apple-health-influxdb/resources.yaml) | InfluxDB 的 `cloudlab/apple-health` bucket，通过 Data Explorer 查询 |
+| Official Health Auto Export dashboards | `/api/data` | [Receiver](../apps/health-auto-export/resources.yaml) and [MongoDB](../apps/health-auto-export/mongodb.yaml) | MongoDB and three official dashboards |
+| InfluxDB import | `/api/healthautoexport/v1/influxdb/ingest` | [InfluxDB receiver](../apps/apple-health-influxdb/resources.yaml) | The `cloudlab/apple-health` bucket in InfluxDB, queried through Data Explorer |
 
-两条 REST API 使用同一个 `health-ingest.<domain>`，分别使用各自的写入凭据。官方面板的部署和手机配置见 [Health Auto Export 官方面板](#health-auto-export-官方面板)。
+Both REST APIs use `health-ingest.<domain>`, with separate write credentials. See [official Health Auto Export dashboards](#official-health-auto-export-dashboards) for server and phone setup.
 
-InfluxDB 还支持在管理机上转换 Apple 导出的 XML。先核对 measurement、单位、时区和重复时间戳，原始 XML 和转换结果保存在受控的本地目录。
+You can also convert an Apple XML export on your management machine for import into InfluxDB. Check measurements, units, time zones, and duplicate timestamps first. Keep the original XML and converted files in a local directory with restricted access.
 
-## 从管理机导入
+## Import from a management machine
 
-准备 [bootstrap 中的 kubeconfig 和 SSH 转发](bootstrap.md#4-准备-kubeconfig-和-sops-密文)。保持 SSH 转发运行，在 `CLOUDLAB_KUBE_CONTEXT` 中填写 kubeconfig 的上下文名，再开一个终端把 InfluxDB 转发到本机回环地址。
+Prepare the [kubeconfig and SSH forwarding](bootstrap.md#4-prepare-kubeconfig-and-encrypted-secrets) from the bootstrap guide. Keep SSH forwarding running and set `CLOUDLAB_KUBE_CONTEXT` to the context name in your kubeconfig. In another terminal, forward InfluxDB to the local loopback address.
 
 ```bash
 kubectl --kubeconfig .local/kubeconfig-cloudlab --context "$CLOUDLAB_KUBE_CONTEXT" -n apps \
   port-forward --address 127.0.0.1 svc/influxdb 18086:8086
 ```
 
-打开 `http://127.0.0.1:18086`，在 InfluxDB 中为 `apple-health` 创建一个只有该 bucket 写权限的 API token，存入凭据库。在另一个终端把它注入 `INFLUX_TOKEN` 环境变量，再导入文件。
+Open `http://127.0.0.1:18086`. In InfluxDB, create an API token with write access only to the `apple-health` bucket and save it in the credential vault. In another terminal, supply it through the `INFLUX_TOKEN` environment variable, then import the file.
 
 ```bash
 curl -fsS http://127.0.0.1:18086/health
@@ -28,26 +28,26 @@ influx write --host http://127.0.0.1:18086 --org cloudlab --bucket apple-health 
   --precision ns --file "$CLOUDLAB_HEALTH_LINE_PROTOCOL"
 ```
 
-`CLOUDLAB_HEALTH_LINE_PROTOCOL` 指向以纳秒为时间戳单位的 line protocol 文件。先导入一个 measurement，用 InfluxDB UI 的 Data Explorer 核对时间、字段和数值，再批量导入。
+`CLOUDLAB_HEALTH_LINE_PROTOCOL` points to a line protocol file with nanosecond timestamps. Import one measurement first and check timestamps, fields, and values in InfluxDB's Data Explorer before importing the rest.
 
-## iPhone 自动导入到 InfluxDB
+## Automatic iPhone imports into InfluxDB
 
-Health Auto Export 使用 REST API 自动化发送 JSON。集群中的 `apple-health-ingester` 验证请求并把指标或训练记录写入 `apple-health` bucket。
+Health Auto Export sends JSON through a REST API automation. The cluster's `apple-health-ingester` validates each request and writes metrics or workout records to the `apple-health` bucket.
 
-首次部署新环境时，先启动 InfluxDB，再为接收器准备随机生成的导出 token 和仅能写入 `apple-health` 的 InfluxDB token。创建 `apps/apple-health-ingester` Secret，键名为 `auth-token` 和 `influx-write-token`，用本次部署的 age 公钥将其加密为 `apps/apple-health-influxdb/credentials.sops.yaml`。把密文加入该组件的 `kustomization.yaml`。`apps/apple-health-influxdb` 同时加载接收器清单和密文，由 apps 同步入口解密。
+For a new deployment, start InfluxDB first. Then generate a random receiver token and an InfluxDB token that can only write to `apple-health`. Create the `apps/apple-health-ingester` Secret with keys `auth-token` and `influx-write-token`. Encrypt it with this deployment's age public key as `apps/apple-health-influxdb/credentials.sops.yaml`, and add it to the component's `kustomization.yaml`. `apps/apple-health-influxdb` loads both the receiver manifests and encrypted credentials; the apps sync entry decrypts them.
 
-- URL 为 `https://health-ingest.<domain>/api/healthautoexport/v1/influxdb/ingest`。发布方式见 [DNS 与访问控制](dns.md)。
-- HTTP Header 的名称为 `Authorization`，值为 `Bearer <导出 token>`。使用为接收器生成的导出 token。InfluxDB 的写入 token 由接收器持有。
-- 配置导出任务的数据类型、指标和频率。填好 URL 和 header 后，先用 **Manual Upload** 发一个短时间段，并从 InfluxDB 核对是否写入。
+- Set the URL to `https://health-ingest.<domain>/api/healthautoexport/v1/influxdb/ingest`. See [DNS and access control](dns.md) for publishing the endpoint.
+- Set the HTTP header name to `Authorization` and its value to `Bearer <receiver-token>`. Use the token generated for the receiver. The receiver holds the InfluxDB write token.
+- Choose the data type, metrics, and export frequency. After setting the URL and header, use **Manual Upload** for a short time range and check the imported data in InfluxDB.
 
-## Health Auto Export 官方面板
+## Official Health Auto Export dashboards
 
-Grafana 的 **Health Auto Export** 文件夹载入官方的 **Health Metrics**、**Workouts Table** 和 **Workout Details**。这三块面板通过 Infinity 查询 `health-auto-export` 服务的 HTTP API，该服务将收到的数据存入集群内 MongoDB。InfluxDB 导入链路的数据独立保存，可通过 Data Explorer 查询。服务代码和面板在部署时从固定的上游 Git 提交获取。[官方配置说明](https://github.com/HealthyApps/health-auto-export-server#setup-guide)
+Grafana's **Health Auto Export** folder contains the official **Health Metrics**, **Workouts Table**, and **Workout Details** dashboards. They use Infinity to query the `health-auto-export` HTTP API, which stores incoming data in MongoDB inside the cluster. Data sent through the InfluxDB import path is stored separately and can be queried through Data Explorer. The service code and dashboards are fetched from a pinned upstream Git commit during deployment. See the [official setup guide](https://github.com/HealthyApps/health-auto-export-server#setup-guide).
 
-首次部署先准备以下两个 SOPS Secret。接收器凭据放在 `apps/health-auto-export`，Grafana 数据源凭据放在 `platform/kube-prometheus-stack`，分别加入目录内的 `kustomization.yaml`。两者分别随 apps 和 platform 同步入口解密。
+Prepare the following two SOPS Secrets before the first deployment. Put receiver credentials in `apps/health-auto-export` and Grafana data source credentials in `platform/kube-prometheus-stack`. Add each file to its directory's `kustomization.yaml`. The apps and platform sync entries decrypt their respective Secrets.
 
-- `apps/health-auto-export` 包含独立的 `write-token`、`read-token`、`mongo-root-password` 和 `mongo-app-password`。两个 API token 都用 `sk-` 加随机字符串。MongoDB 密码用随机十六进制字符串以便上游构造连接 URL。首次启动时，MongoDB 为应用用户授予该数据库的读写权限。
-- `apps/grafana-health-auto-export-datasource` 带 `grafana_datasource: "1"` 标签，并以 `health-auto-export.yaml` 为键提供下列数据源。 `<read-token>` 与服务使用的读取 token 一致。
+- `apps/health-auto-export` contains separate `write-token`, `read-token`, `mongo-root-password`, and `mongo-app-password` values. Each API token uses `sk-` followed by a random string. Use random hexadecimal strings for MongoDB passwords so the upstream service can build connection URLs. On first startup, MongoDB grants the application user read/write access to its database.
+- `apps/grafana-health-auto-export-datasource` has the label `grafana_datasource: "1"` and provides the following data source under the `health-auto-export.yaml` key. `<read-token>` must match the service's read token.
 
 ```yaml
 apiVersion: 1
@@ -67,6 +67,6 @@ datasources:
       httpHeaderValue1: <read-token>
 ```
 
-iPhone 分别创建 **Health Metrics** 和 **Workouts** 自动化，各自指向 `https://health-ingest.<domain>/api/data`。两条都使用 JSON，并设置 `api-key` 为写入 token。先用 **Manual Upload** 上传一个短时间段，再打开对应面板核对。两条导入链路可以同时使用。
+On the iPhone, create separate **Health Metrics** and **Workouts** automations, both pointing to `https://health-ingest.<domain>/api/data`. Use JSON for both and set `api-key` to the write token. Start with **Manual Upload** for a short time range, then check the corresponding dashboard. Both import paths can be used at the same time.
 
-公网入口只转发 `POST /api/data`。Grafana 使用读取 token，在集群内查询官方服务。MongoDB 使用单节点持久卷，应用数据库纳入主机定时备份，与 InfluxDB 和 Kuma 数据一起加密上传到 COS。恢复步骤见 [备份指南](backups.md)。
+The public endpoint forwards only `POST /api/data`. Grafana uses the read token to query the official service inside the cluster. MongoDB uses a single-node persistent volume. Its application database is included in the scheduled host backup, encrypted, and uploaded to COS alongside InfluxDB and Kuma data. See the [backup guide](backups.md) for recovery steps.

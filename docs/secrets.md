@@ -1,43 +1,43 @@
-# 凭据与 SOPS
+# Credentials and SOPS
 
-Git 只保存 SOPS 密文和填写示例。明文凭据、age 私钥、kubeconfig 和 OpenTofu state 保存在凭据库或受控的本地目录。CVM 管理、COS 桶管理、备份和 Thanos 分别使用对应权限的凭据。
+Git stores only SOPS ciphertext and examples. Keep plaintext credentials, age private keys, kubeconfig, and OpenTofu state in a credential vault or a local directory with restricted access. Use separate credentials with the required permissions for CVM management, COS bucket management, backups, and Thanos.
 
-## 部署凭据
+## Deployment credentials
 
-| 用途 | 内容 |
+| Purpose | Required values |
 | --- | --- |
-| SOPS | age 公钥与私钥；所有组件共用同一套集群解密身份 |
-| GitHub bootstrap | 源仓库的 fine-grained PAT：Contents、Administration 读写，Metadata 只读；bootstrap 后由 deploy key 同步 |
-| Cloudflare Tunnel 管理 | 目标账号的 Tunnel edit API token，注入 `CLOUDFLARE_API_TOKEN` |
-| Cloudflare Tunnel 连接器 | connector token 和 Tunnel ID；连接器 token 写入 `cloudflared` Secret |
-| CVM 与安全组 | `TENCENTCLOUD_SECRET_ID`、`TENCENTCLOUD_SECRET_KEY` |
-| COS 桶管理 | `TF_VAR_cos_secret_id`、`TF_VAR_cos_secret_key` |
-| COS 备份 | 备份前缀的对象列表、读写、删除和分片上传权限，及独立保存的 restic 密码 |
-| COS 指标 | Thanos 指标前缀的读写、删除权限及所需的桶列表权限 |
-| 资源恢复 | 加密保存的 OpenTofu state、仓库地址、实例和数据盘 ID |
+| SOPS | An age public and private key pair; all components share one cluster decryption identity |
+| GitHub bootstrap | A fine-grained PAT for the source repository: read/write Contents and Administration, read-only Metadata; a deploy key handles sync after bootstrap |
+| Cloudflare Tunnel management | A Tunnel edit API token for the target account, passed as `CLOUDFLARE_API_TOKEN` |
+| Cloudflare Tunnel connector | Connector token and Tunnel ID; store the connector token in the `cloudflared` Secret |
+| CVM and security groups | `TENCENTCLOUD_SECRET_ID`, `TENCENTCLOUD_SECRET_KEY` |
+| COS bucket management | `TF_VAR_cos_secret_id`, `TF_VAR_cos_secret_key` |
+| COS backups | Object listing, read, write, delete, and multipart upload permissions for the backup prefix, plus a separately stored restic password |
+| COS metrics | Read, write, and delete permissions for the Thanos metrics prefix, plus the required bucket listing permissions |
+| Resource recovery | Encrypted OpenTofu state, repository URL, instance ID, and data disk ID |
 
-## 应用 Secret
+## Application Secrets
 
-下表是当前资源引用的全部 Secret。新部署需要使用自己的凭据生成这些密文；不部署某个组件时，应同时移除其资源入口。
+The table lists all Secrets referenced by the current resources. Generate new ciphertext with your own credentials for a new deployment. If you omit a component, also remove its resource entry.
 
-| Secret（命名空间/名称） | 密文路径 | 字段或用途 |
+| Secret (namespace/name) | Encrypted file | Fields or purpose |
 | --- | --- | --- |
 | `infra/cloudflared` | `platform/cloudflared/credentials.sops.yaml` | `token` |
-| `apps/grafana-admin` | `platform/kube-prometheus-stack/grafana-admin.sops.yaml` | `admin-user`、`admin-password` |
-| `apps/cloudlab-alertmanager` | `platform/kube-prometheus-stack/alertmanager.sops.yaml` | `alertmanager.yaml`；见 [告警配置](monitoring.md#告警) |
-| `apps/thanos-objstore` | `platform/thanos/objstore.sops.yaml` | `objstore.yml`；见 [对象存储凭据](monitoring.md#对象存储凭据) |
-| `apps/influxdb-auth` | `apps/influxdb/credentials.sops.yaml` | 初始化 `password`、`token` |
-| `apps/apple-health-ingester` | `apps/apple-health-influxdb/credentials.sops.yaml` | `auth-token`、`influx-write-token` |
-| `apps/health-auto-export` | `apps/health-auto-export/credentials.sops.yaml` | `write-token`、`read-token`、`mongo-root-password`、`mongo-app-password` |
-| `apps/grafana-health-auto-export-datasource` | `platform/kube-prometheus-stack/grafana-health-auto-export-datasource.sops.yaml` | 官方服务的读取 token；见 [Apple Health 接入](apple-health.md#health-auto-export-官方面板) |
+| `apps/grafana-admin` | `platform/kube-prometheus-stack/grafana-admin.sops.yaml` | `admin-user`, `admin-password` |
+| `apps/cloudlab-alertmanager` | `platform/kube-prometheus-stack/alertmanager.sops.yaml` | `alertmanager.yaml`; see [alerts](monitoring.md#alerts) |
+| `apps/thanos-objstore` | `platform/thanos/objstore.sops.yaml` | `objstore.yml`; see [object storage credentials](monitoring.md#object-storage-credentials) |
+| `apps/influxdb-auth` | `apps/influxdb/credentials.sops.yaml` | Initial `password` and `token` |
+| `apps/apple-health-ingester` | `apps/apple-health-influxdb/credentials.sops.yaml` | `auth-token`, `influx-write-token` |
+| `apps/health-auto-export` | `apps/health-auto-export/credentials.sops.yaml` | `write-token`, `read-token`, `mongo-root-password`, `mongo-app-password` |
+| `apps/grafana-health-auto-export-datasource` | `platform/kube-prometheus-stack/grafana-health-auto-export-datasource.sops.yaml` | Read token for the official service; see [Apple Health](apple-health.md#official-health-auto-export-dashboards) |
 
-InfluxDB 接收器的 `influx-write-token` 需要在 InfluxDB 初始化后创建，只授予 `apple-health` bucket 写权限。手机使用接收器的 `auth-token`，不使用 InfluxDB token。官方 Health Auto Export 使用另一套读写 token。
+Create the InfluxDB receiver's `influx-write-token` after initializing InfluxDB. Grant it write access only to the `apple-health` bucket. The phone uses the receiver's `auth-token`, not the InfluxDB token. The official Health Auto Export service uses a separate pair of read and write tokens.
 
-Kuma 的管理员和通知凭据在 UI 中初始化后保存到凭据库，当前不由 Kubernetes Secret 初始化。修改已有 InfluxDB 或 MongoDB 的登录凭据时，还需要在数据库内完成轮换；更新初始化 Secret 不会重置已有数据库。
+Set up Kuma's administrator and notification credentials in its UI, then save them in the credential vault. Kubernetes Secrets do not initialize them. To change login credentials for an existing InfluxDB or MongoDB instance, also rotate them inside the database. Updating the initialization Secret does not reset an existing database.
 
-## 生成并提交密文
+## Encrypt and commit secrets
 
-从仓库根目录执行。首次部署生成 age 身份；重建原集群时，取回与 Git 密文匹配的私钥。
+Run these commands from the repository root. Generate an age identity for a new deployment. To rebuild an existing cluster, retrieve the private key that matches the ciphertext in Git.
 
 ```bash
 umask 077
@@ -47,9 +47,9 @@ age-keygen -o .local/age.agekey
 age-keygen -y .local/age.agekey
 ```
 
-将公钥、私钥保存到凭据库，验证私钥可取回，并将公钥填写到 [.sops.yaml](../.sops.yaml) 的 `age` 字段。
+Save both keys in the credential vault, verify that you can retrieve the private key, and put the public key in the `age` field of [.sops.yaml](../.sops.yaml).
 
-下面以 Tunnel 凭据为例。其他 Secret 使用相应组件的示例或上表所列的字段，保持资源名称、命名空间和字段名与引用一致。
+The example below uses Tunnel credentials. For other Secrets, use the component's example or the fields listed above. Keep resource names, namespaces, and field names consistent with their references.
 
 ```bash
 credential_dir=platform/cloudflared
@@ -65,15 +65,15 @@ SOPS_AGE_KEY_FILE="$PWD/.local/age.agekey" sops decrypt \
 mv .local/credentials.sops.yaml "$credential_dir/credentials.sops.yaml"
 ```
 
-解密校验通过后删除 `.local/credentials.yaml`，在组件的 `kustomization.yaml` 中引用密文文件。platform 和 apps 的 [Flux 同步入口](../infra/flux/reconcile.yaml) 均启用 SOPS 解密。新增组件时，将它加入所属层的 `kustomization.yaml`。
+After the decryption check passes, delete `.local/credentials.yaml` and reference the encrypted file in the component's `kustomization.yaml`. Both the platform and apps [Flux sync entries](../infra/flux/reconcile.yaml) enable SOPS decryption. Add new components to their parent layer's `kustomization.yaml`.
 
-检查待提交文件只有公钥、密文和资源引用，再提交到 Flux 读取的分支。公开仓库中的 Secret 名称和字段名仍然可见。Flux 使用 `flux-system/sops-age` 解密；bootstrap 后确认私钥可从凭据库恢复，即可删除本地私钥副本。[Flux SOPS 指南](https://fluxcd.io/flux/guides/mozilla-sops/)
+Check that the files to commit contain only the public key, ciphertext, and resource references, then commit to the branch Flux watches. Secret names and field names remain visible in a public repository. Flux decrypts them using `flux-system/sops-age`. After bootstrap, verify that the private key can be recovered from the vault before deleting the local copy. See the [Flux SOPS guide](https://fluxcd.io/flux/guides/mozilla-sops/).
 
-## 注入引导凭据
+## Provide bootstrap credentials
 
-`infra/bootstrap.sh` 需要 `KUBECONFIG`、`GITHUB_REPOSITORY`、`GITHUB_TOKEN`，以及 `SOPS_AGE_KEY_FILE` 或 `SOPS_AGE_KEY`。SSH 转发方式见 [部署手册](bootstrap.md#4-准备-kubeconfig-和-sops-密文)。
+`infra/bootstrap.sh` needs `KUBECONFIG`, `GITHUB_REPOSITORY`, `GITHUB_TOKEN`, and either `SOPS_AGE_KEY_FILE` or `SOPS_AGE_KEY`. See the [bootstrap guide](bootstrap.md#4-prepare-kubeconfig-and-encrypted-secrets) for SSH forwarding.
 
-使用 1Password CLI 时，可建立 `CloudLab GitHub bootstrap`（字段 `token`）和 `CloudLab SOPS age`（字段 `private-key`）两个条目。将 `CLOUDLAB_VAULT` 设为所在 vault，执行：
+With the 1Password CLI, you can create items named `CloudLab GitHub bootstrap` with a `token` field and `CloudLab SOPS age` with a `private-key` field. Set `CLOUDLAB_VAULT` to their vault name, then run:
 
 ```bash
 unset SOPS_AGE_KEY_FILE

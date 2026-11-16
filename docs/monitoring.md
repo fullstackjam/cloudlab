@@ -1,52 +1,52 @@
-# 监控与长期存储
+# Monitoring and long-term storage
 
-[kube-prometheus-stack](../platform/kube-prometheus-stack/resources.yaml) 部署 Prometheus、Alertmanager、Grafana 和采集组件。[Thanos](../platform/thanos/resources.yaml) 提供指标长期存储与统一查询。
+[kube-prometheus-stack](../platform/kube-prometheus-stack/resources.yaml) deploys Prometheus, Alertmanager, Grafana, and metrics collectors. [Thanos](../platform/thanos/resources.yaml) provides long-term metric storage and a single query endpoint.
 
-## 指标存储与查询
+## Metric storage and queries
 
-Prometheus 本地保留期为 3 天，同时设置 8 GB 的容量限制，先达到的限制决定清理时间。Sidecar 将完成的 TSDB 数据块上传到 COS 的 `thanos/cloudlab/` 前缀。原始、5 分钟和 1 小时分辨率的保留期均为 `0s`，Thanos 不按时间删除这些数据；COS 生命周期也不能对当前指标块设置按龄过期。
+Prometheus retains local data for up to 3 days, with an 8 GB size limit. Cleanup starts when either limit is reached. The Sidecar uploads completed TSDB blocks to the `thanos/cloudlab/` prefix in COS. Retention is `0s` for raw, 5-minute, and 1-hour data, so Thanos does not delete these blocks based on age. COS lifecycle rules must not expire current metric blocks based on age either.
 
-Grafana 只保留一个 Prometheus 类型的数据源，名称为 **Prometheus**、UID 为 `prometheus`，地址指向 Thanos Query。Query 通过 Sidecar 查询 Prometheus，通过 Store Gateway 查询 COS，并返回统一结果。历史数据不会重新写入 Prometheus。官方 Health Auto Export 面板通过 HTTP API 查询 MongoDB，不经过 Thanos。
+Grafana has one Prometheus-type data source, named **Prometheus**, with UID `prometheus`, pointing to Thanos Query. Query reads Prometheus through the Sidecar and COS through the Store Gateway, then combines the results. Historical data is not written back into Prometheus. The official Health Auto Export dashboards query MongoDB through an HTTP API and do not use Thanos.
 
-Compactor 负责合并数据块和生成降采样数据。Query 启用 `--query.auto-downsampling`，按查询步长选择原始、5 分钟或 1 小时分辨率的数据；没有对应降采样块时仍读取原始数据。需要强制使用原始数据时，传入 `max_source_resolution=0`。保留原始数据后，可以放大历史时间段查看原采样精度的指标。机制与参数见 [Thanos Query](https://thanos.io/tip/components/query.md/) 和 [Compactor](https://thanos.io/tip/components/compact.md/)。
+The Compactor merges blocks and creates downsampled data. Query enables `--query.auto-downsampling` to choose raw, 5-minute, or 1-hour data based on the query step. It reads raw data when matching downsampled blocks are unavailable. Pass `max_source_resolution=0` to force raw data. Keeping raw data lets you zoom into a historical period at the original sampling resolution. See [Thanos Query](https://thanos.io/tip/components/query.md/) and [Compactor](https://thanos.io/tip/components/compact.md/) for details.
 
-所有组件部署在同一个节点上，节点不可用时查询也会中断。COS 保存已上传的数据，本地磁盘丢失仍可能导致尚未上传的数据丢失。
+All components run on one node, so queries stop when that node is unavailable. COS retains uploaded data, but losing the local disk can still lose data that has not yet been uploaded.
 
-## 对象存储凭据
+## Object storage credentials
 
-为 Thanos 准备专用 COS 凭据，将对象读写、删除权限限定到指标前缀，并提供所需的桶列表权限。Compactor 需要删除已被新块替代的对象。
+Create dedicated COS credentials for Thanos. Limit object read, write, and delete permissions to the metrics prefix, and grant the required bucket listing permissions. The Compactor needs to delete objects that newer blocks have replaced.
 
-`apps/thanos-objstore` Secret 的 `objstore.yml` 字段保存 S3 配置，包括桶名、区域、端点、access key、secret key 和顶层 `prefix: thanos/cloudlab`。按 [SOPS 步骤](secrets.md#生成并提交密文) 加密为 `platform/thanos/objstore.sops.yaml`。Sidecar、Store Gateway 和 Compactor 共用这个 Secret。
+The `objstore.yml` field in the `apps/thanos-objstore` Secret holds the S3 configuration: bucket, region, endpoint, access key, secret key, and top-level `prefix: thanos/cloudlab`. Follow the [SOPS steps](secrets.md#encrypt-and-commit-secrets) to encrypt it as `platform/thanos/objstore.sops.yaml`. The Sidecar, Store Gateway, and Compactor share this Secret.
 
-## 验证
+## Verification
 
-在 Grafana Explore 选择 **Prometheus**，查询近 15 分钟的 `up`，再查询已上传到 COS 的历史时段。要单独验证 COS 中的数据，在 Query API 请求中设置 `storeMatch[]={__address__="thanos-store.apps.svc.cluster.local:10901"}` 和 `partial_response=false`，限定只查询 Store Gateway。Thanos 服务只提供集群内地址。
+In Grafana Explore, select **Prometheus** and query `up` for the last 15 minutes, then query a historical period already uploaded to COS. To test COS data alone, set `storeMatch[]={__address__="thanos-store.apps.svc.cluster.local:10901"}` and `partial_response=false` in the Query API request. This limits the query to the Store Gateway. Thanos endpoints are only available inside the cluster.
 
-## 告警
+## Alerts
 
-Prometheus 评估规则，再将告警发送给 Alertmanager。Alertmanager 按告警名分组，向 ntfy 发送触发和恢复通知，通知只包含规则名和状态。Watchdog、InfoInhibitor 不向 ntfy 发送。当前没有为 k3s 的 scheduler、controller-manager、kube-proxy 配置独立抓取目标，对应的三条 `*Down` 规则已停用。
+Prometheus evaluates rules and sends alerts to Alertmanager. Alertmanager groups alerts by name and sends firing and resolved notifications to ntfy. Notifications contain only the rule name and status. Watchdog and InfoInhibitor do not send ntfy notifications. There are no separate scrape targets for the k3s scheduler, controller-manager, or kube-proxy, so their three `*Down` rules are disabled.
 
-自定义规则放在 `platform/kube-prometheus-stack/resources.yaml` 的 `additionalPrometheusRulesMap` 下，由 Helm 创建 `PrometheusRule`。`CloudLabDataDiskUsageHigh` 在 `/data` 的 ext4 文件系统可用空间低于 20% 且持续 10 分钟时触发。local-path PVC 的申请容量不构成磁盘配额，各应用共享 `/data` 的实际空间。
+Custom rules are defined under `additionalPrometheusRulesMap` in `platform/kube-prometheus-stack/resources.yaml`. Helm creates the corresponding `PrometheusRule`. `CloudLabDataDiskUsageHigh` fires when the ext4 filesystem at `/data` has less than 20% free space for 10 minutes. Requested local-path PVC sizes do not enforce disk quotas; applications share the available space on `/data`.
 
-`platform/kube-prometheus-stack/alertmanager.sops.yaml` 定义 `apps/cloudlab-alertmanager` Secret，`alertmanager.yaml` 字段保存原生配置。ntfy webhook 的 URL 为 `https://ntfy.sh`，`payload.topic` 指定主题，原生 `payload` 模板生成 ntfy 所需的 JSON。修改后重新加密并提交，由 Flux 部署。验证 Prometheus 的 `/api/v1/alertmanagers` 列出了 Alertmanager，再验证测试告警的触发和恢复通知。
+`platform/kube-prometheus-stack/alertmanager.sops.yaml` defines the `apps/cloudlab-alertmanager` Secret. Its `alertmanager.yaml` field contains native Alertmanager configuration. The ntfy webhook URL is `https://ntfy.sh`, `payload.topic` selects the topic, and the native `payload` template produces the JSON ntfy expects. After editing, encrypt and commit the file for Flux to deploy. Verify that Prometheus lists Alertmanager at `/api/v1/alertmanagers`, then check both firing and resolved notifications with a test alert.
 
-## Thanos 告警覆盖
+## Thanos alert coverage
 
-[thanos-monitoring.yaml](../platform/kube-prometheus-stack/thanos-monitoring.yaml) 为 HelmRelease 补充 PodMonitor 和 PrometheusRule 配置，由 chart 在安装 Prometheus CRD 后创建。Sidecar 使用 chart 的 ServiceMonitor；Query、Store Gateway 和 Compactor 使用 PodMonitor，均每 30 秒采集一次。四个 job 分别为 `thanos-sidecar`、`thanos-query`、`thanos-store` 和 `thanos-compactor`。
+[thanos-monitoring.yaml](../platform/kube-prometheus-stack/thanos-monitoring.yaml) adds PodMonitor and PrometheusRule settings to the HelmRelease. The chart creates these resources after installing the Prometheus CRDs. The Sidecar uses the chart's ServiceMonitor; Query, Store Gateway, and Compactor use a PodMonitor. All are scraped every 30 seconds. Their job names are `thanos-sidecar`, `thanos-query`, `thanos-store`, and `thanos-compactor`.
 
-| 告警 | 触发条件 |
+| Alert | Condition |
 | --- | --- |
-| `ThanosComponentUnavailable` | 组件采集失败或目标消失，持续 5 分钟 |
-| `ThanosSidecarPrometheusUnavailable` | Sidecar 无法访问 Prometheus，持续 5 分钟 |
-| `ThanosSidecarUploadFailed` | 近 15 分钟出现上传失败，条件持续 5 分钟 |
-| `ThanosSidecarUploadStalled` | Sidecar 已运行超过 3 小时，且超过 3 小时没有成功上传，持续 15 分钟 |
-| `ThanosObjectStorageErrors` | 最近 5 分钟内发生 COS 操作错误，条件持续 10 分钟 |
-| `ThanosCompactorHalted` | Compactor 进入 halted 状态，持续 5 分钟 |
-| `ThanosCompactorFailures` | 近 15 分钟出现压缩、降采样或清理失败，条件持续 5 分钟 |
-| `ThanosCompactorStalled` | Compactor 已运行超过 1 小时，最近 1 小时没有完成迭代，持续 15 分钟 |
-| `ThanosStoreSyncFailures` | 近 15 分钟出现块元数据同步或加载失败，条件持续 5 分钟 |
-| `ThanosQueryStoreUnavailable` | Query 缺少 Sidecar 或 Store Gateway 连接，持续 5 分钟 |
+| `ThanosComponentUnavailable` | A component scrape fails or its target is missing for 5 minutes |
+| `ThanosSidecarPrometheusUnavailable` | The Sidecar cannot reach Prometheus for 5 minutes |
+| `ThanosSidecarUploadFailed` | An upload failure occurred in the last 15 minutes, and the condition holds for 5 minutes |
+| `ThanosSidecarUploadStalled` | The Sidecar has run for over 3 hours without a successful upload in the last 3 hours, and the condition holds for 15 minutes |
+| `ThanosObjectStorageErrors` | COS operation errors occurred in the last 5 minutes, and the condition holds for 10 minutes |
+| `ThanosCompactorHalted` | The Compactor remains halted for 5 minutes |
+| `ThanosCompactorFailures` | Compaction, downsampling, or cleanup failures occurred in the last 15 minutes, and the condition holds for 5 minutes |
+| `ThanosCompactorStalled` | The Compactor has run for over 1 hour without completing an iteration in the last hour, and the condition holds for 15 minutes |
+| `ThanosStoreSyncFailures` | Block metadata sync or block loading failed in the last 15 minutes, and the condition holds for 5 minutes |
+| `ThanosQueryStoreUnavailable` | Query has no Sidecar or Store Gateway connection for 5 minutes |
 
-这些规则由 Prometheus 执行，沿用 Alertmanager 的 ntfy 路由。规则测试覆盖启动宽限期、短暂错误、持续故障和恢复，CI 用 `promtool test rules` 执行。部署后检查四个采集目标为 UP、规则组 `cloudlab.thanos` 无评估错误，并验证一次测试告警的触发与恢复。
+Prometheus evaluates these rules and uses the existing Alertmanager route to ntfy. Rule tests cover startup grace periods, brief errors, sustained failures, and recovery. CI runs them with `promtool test rules`. After deployment, check that all four scrape targets are UP, the `cloudlab.thanos` rule group has no evaluation errors, and a test alert produces both firing and resolved notifications.
 
-Prometheus 与这些组件在同一节点，节点整体离线时无法依靠本机规则发出通知。
+Prometheus runs on the same node as these components. These local rules cannot send notifications when the entire node is offline.

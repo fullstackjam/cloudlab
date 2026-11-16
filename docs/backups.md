@@ -1,33 +1,33 @@
-# 备份与恢复
+# Backup and recovery
 
-备份由 CVM 上的 systemd timer 每天在 03:20 UTC 运行，不使用 Kubernetes CronJob。[backup.sh](../infra/backup/backup.sh) 导出应用数据，再用 restic 加密上传到 COS。restic 管理快照、保留期和恢复；Thanos 的长期指标存储独立管理，见 [监控文档](monitoring.md)。
+A systemd timer on the CVM runs backups daily at 03:20 UTC. It does not use a Kubernetes CronJob. [backup.sh](../infra/backup/backup.sh) exports application data, then uses restic to encrypt and upload it to COS. restic manages snapshots, retention, and restores. Thanos manages long-term metrics separately; see [monitoring](monitoring.md).
 
-## 备份范围
+## Backup contents
 
-| 应用 | 导出文件 | 包含内容 | 恢复时需重建 |
+| Application | Export file | Included data | Recreate during recovery |
 | --- | --- | --- | --- |
-| InfluxDB | `apple-health.csv` | `apple-health` bucket 的 annotated query CSV | 用户、token 和其他配置 |
-| Uptime Kuma | `kuma.db` | 监控配置、历史、状态页和数据库迁移标记 | 管理员、会话、通知及监控凭据 |
-| Health Auto Export | `health-auto-export.archive.gz` | MongoDB 应用数据库的文档、集合和索引 | 数据库用户与角色 |
+| InfluxDB | `apple-health.csv` | Annotated query CSV from the `apple-health` bucket | Users, tokens, and other configuration |
+| Uptime Kuma | `kuma.db` | Monitor configuration, history, status pages, and database migration markers | Administrators, sessions, notifications, and monitor credentials |
+| Health Auto Export | `health-auto-export.archive.gz` | Documents, collections, and indexes from the MongoDB application database | Database users and roles |
 
-Kuma 使用 SQLite 在线备份后清理副本：清空用户、会话、通知及未列入保留清单的表，清除监控凭据字段，并移除 URL 中的用户名、密码和 query。名称、描述、标签和 URL 路径仍会保留，不应在这些字段中存放凭据。升级 Kuma 时需检查导出脚本是否适配新 schema。
+For Kuma, the script creates an online SQLite backup and cleans the copy. It clears user, session, notification, and other tables not on the retention list; clears monitor credential fields; and removes usernames, passwords, and query strings from URLs. Names, descriptions, tags, and URL paths remain, so do not store credentials in those fields. Check that the export script supports the new schema when upgrading Kuma.
 
-备份不包含原始 PVC、集群状态、kubeconfig 或 Secret。Grafana 的仓库配置和面板由 Flux 恢复；只在 UI 中创建的内容不在当前备份范围内。应用凭据从凭据库恢复。
+Backups do not include raw PVCs, cluster state, kubeconfig, or Secrets. Flux restores Grafana configuration and dashboards stored in Git. Content created only in the UI is not currently backed up. Recover application credentials from the credential vault.
 
-## 首次配置
+## Initial setup
 
-在 k3s 节点准备 restic、Python 3、kubectl 和 flock。脚本需要本机访问 `/data/k3s/storage` 下的 Kuma 数据文件。
+Install restic, Python 3, kubectl, and flock on the k3s node. The script needs local access to Kuma's data files under `/data/k3s/storage`.
 
-创建 root 所有、权限为 `0600` 的 `/etc/cloudlab/backup.env`，填写以下变量：
+Create `/etc/cloudlab/backup.env`, owned by root with mode `0600`, and set these variables:
 
-| 变量 | 内容 |
+| Variable | Value |
 | --- | --- |
 | `RESTIC_REPOSITORY` | `s3:https://cos.na-ashburn.myqcloud.com/BUCKET-APPID/restic/cloudlab` |
-| `RESTIC_PASSWORD` | restic 仓库加密密码，独立保存到凭据库 |
-| `AWS_ACCESS_KEY_ID` | 限定到备份前缀的 COS access key |
-| `AWS_SECRET_ACCESS_KEY` | 对应的 COS secret key |
+| `RESTIC_PASSWORD` | The restic repository encryption password, stored separately in the credential vault |
+| `AWS_ACCESS_KEY_ID` | A COS access key limited to the backup prefix |
+| `AWS_SECRET_ACCESS_KEY` | The matching COS secret key |
 
-以下命令在节点上执行。环境文件只在 root shell 中加载，不输出内容。
+Run the following commands on the node. Load the environment file only in a root shell, without printing its contents.
 
 ```bash
 sudo -i
@@ -40,7 +40,7 @@ export CLOUDLAB_KUBE_CONTEXT=default
 restic -o s3.bucket-lookup=dns init
 ```
 
-在节点上的仓库根目录执行以下安装命令；若节点没有仓库副本，先将这些文件复制到节点：
+Run these installation commands from the repository root on the node. If the node has no checkout, copy the files to it first:
 
 ```bash
 sudo install -d -m 0755 /opt/cloudlab-backup
@@ -51,18 +51,18 @@ sudo systemctl start cloudlab-backup.service
 sudo journalctl -u cloudlab-backup.service -n 50 --no-pager
 ```
 
-确认首次备份成功并完成一次隔离恢复后，开启定时任务：
+After the first backup succeeds and you have tested an isolated restore, enable the timer:
 
 ```bash
 sudo systemctl enable --now cloudlab-backup.timer
 sudo systemctl list-timers cloudlab-backup.timer
 ```
 
-脚本保留最近 30 天内的快照，并在每次备份后执行 prune 和 5% 数据抽查。COS 版本控制下，被删除的 restic 对象版本还可能保留 35 天；不要对仍在使用的 restic 对象设置按龄过期。定期检查磁盘、桶容量和备份执行结果。
+The script retains snapshots from the last 30 days. After each backup, it prunes unused data and checks a 5% sample. With COS versioning, deleted restic object versions may remain for another 35 days. Do not set age-based expiration for restic objects still in use. Regularly check disk space, bucket usage, and backup results.
 
-## 恢复快照
+## Restore a snapshot
 
-在加载了上述凭据的 root shell 中运行：
+Run these commands in the root shell with the credentials loaded above:
 
 ```bash
 restic -o s3.bucket-lookup=dns snapshots --tag cloudlab
@@ -70,11 +70,11 @@ restic -o s3.bucket-lookup=dns check
 restic -o s3.bucket-lookup=dns restore "$SNAPSHOT_ID" --target /data/restore-drill
 ```
 
-`SNAPSHOT_ID` 填写要恢复的快照 ID。导出文件位于恢复目录中的 `data/cloudlab-backup.*` 子目录。先恢复到隔离命名空间或节点，不创建公网 HTTPRoute，不覆盖运行中的卷。
+Set `SNAPSHOT_ID` to the snapshot to restore. Export files are under a `data/cloudlab-backup.*` subdirectory in the restore target. Restore into an isolated namespace or node first. Do not create public HTTPRoutes or overwrite active volumes.
 
 ### InfluxDB
 
-部署独立的 InfluxDB 2.x 实例，初始化 `cloudlab` org 和 `apple-health` bucket。将写入 token 注入 `INFLUX_TOKEN`，用 [restore-influxdb.py](../infra/backup/restore-influxdb.py) 转换 CSV：
+Deploy a separate InfluxDB 2.x instance and initialize the `cloudlab` organization and `apple-health` bucket. Supply a write token through `INFLUX_TOKEN`, then convert the CSV with [restore-influxdb.py](../infra/backup/restore-influxdb.py):
 
 ```bash
 python3 infra/backup/restore-influxdb.py < "$RESTORED_CSV" > "$RESTORED_LINE_PROTOCOL"
@@ -82,15 +82,15 @@ influx write --host "$DRILL_INFLUX_URL" --bucket apple-health --org cloudlab \
   --precision ns --file "$RESTORED_LINE_PROTOCOL"
 ```
 
-`RESTORED_CSV` 指向恢复的 `apple-health.csv`，`RESTORED_LINE_PROTOCOL` 是转换后的文件，`DRILL_INFLUX_URL` 是隔离实例地址。不要直接将 query CSV 交给 `influx write`。核对 measurement 数量、时间范围、字段类型和样本值。导出格式见 [Influx query CSV](https://docs.influxdata.com/influxdb/v2/query-data/execute-queries/influx-cli/)。
+`RESTORED_CSV` points to the restored `apple-health.csv`, `RESTORED_LINE_PROTOCOL` is the converted file, and `DRILL_INFLUX_URL` is the isolated instance's URL. Do not pass query CSV directly to `influx write`. Check measurement counts, time ranges, field types, and sample values. See [Influx query CSV](https://docs.influxdata.com/influxdb/v2/query-data/execute-queries/influx-cli/) for the export format.
 
 ### Uptime Kuma
 
-停止隔离环境中的 Kuma，将 `kuma.db` 放入它的 `/app/data` 卷，设置为容器用户可读写，再启动服务。重新创建管理员，从凭据库恢复监控凭据和通知设置。不要混入旧数据库的 WAL 文件。核对监控数量、配置和历史记录。
+Stop Kuma in the isolated environment, place `kuma.db` in its `/app/data` volume, and allow the container user to read and write it. Then start the service. Recreate the administrator and recover monitor credentials and notification settings from the vault. Do not include WAL files from an old database. Check monitor counts, configuration, and history.
 
 ### MongoDB
 
-使用隔离的 MongoDB 8.0 实例和兼容的 Database Tools，在 Pod 内通过回环地址恢复。下面命令假设隔离实例尚未启用认证：
+Use an isolated MongoDB 8.0 instance and compatible Database Tools. Restore through the loopback address inside the Pod. The command below assumes authentication is not yet enabled on the isolated instance:
 
 ```bash
 kubectl --context "$CLOUDLAB_KUBE_CONTEXT" -n "$DRILL_NAMESPACE" exec -i "$DRILL_POD" -- \
@@ -98,14 +98,14 @@ kubectl --context "$CLOUDLAB_KUBE_CONTEXT" -n "$DRILL_NAMESPACE" exec -i "$DRILL
   --nsInclude='health-auto-export.*' < "$RESTORED_ARCHIVE"
 ```
 
-`RESTORED_ARCHIVE` 指向恢复的 `health-auto-export.archive.gz`。核对 mongorestore 的成功/失败数量、各集合文档数、索引，以及指标、训练和路线样本。部署 Secret 用于重建认证信息。
+`RESTORED_ARCHIVE` points to the restored `health-auto-export.archive.gz`. Check mongorestore's success and failure counts, document counts for each collection, indexes, and samples of metrics, workouts, and routes. Use the deployment Secret to recreate authentication settings.
 
-单节点 MongoDB 使用在线逻辑导出，导出期间发生的跨集合写入可能落在不同时间点。恢复后可从 iPhone 重传对应日期的数据。
+Single-node MongoDB uses an online logical export. Writes across collections during the export may be captured at different points in time. After recovery, you can upload the affected dates again from the iPhone.
 
-记录所用快照、数据核对结果和实际恢复耗时，记录保存在仓库外。每日备份的目标 RPO 为 24 小时，前提是定时任务成功；RTO 以恢复演练实测为准。
+Record the snapshot used, data checks, and actual recovery time outside this repository. Daily backups target an RPO of 24 hours, provided scheduled jobs succeed. Measure RTO during a recovery test.
 
-## 更换节点
+## Replace a node
 
-取回 age 私钥、Git 访问凭据、COS key、restic 密码、OpenTofu state 和基础资源 ID。按 [引导手册](bootstrap.md) 准备替代节点、数据盘和 k3s，从 Git 引导 Flux，再恢复应用数据和账号。
+Retrieve the age private key, Git access credentials, COS keys, restic password, OpenTofu state, and infrastructure resource IDs. Follow the [bootstrap guide](bootstrap.md) to prepare the replacement node, data disk, and k3s. Bootstrap Flux from Git, then restore application data and accounts.
 
-复用原数据盘时，先决定恢复原集群状态还是重建，再处理 `/data/k3s/server`；同一目录只允许一台 k3s server 使用。切换前确认旧节点已停止使用该盘。重建 Tunnel 连接器时轮换 connector token，并核对 OpenTofu state 中的资源记录。
+Before reusing a data disk, decide whether to recover the existing cluster state or rebuild it, then handle `/data/k3s/server` accordingly. Only one k3s server may use that directory. Confirm that the old node has stopped using the disk before switching. When rebuilding the Tunnel connector, rotate its token and check the resource records in OpenTofu state.
