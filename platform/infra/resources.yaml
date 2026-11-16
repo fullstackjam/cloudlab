@@ -101,6 +101,29 @@ spec:
         kubeProxy: false
         kubeSchedulerAlerting: false
     grafana:
+      plugins:
+      - yesoreyeram-infinity-datasource@4.1.6
+      dashboardProviders:
+        healthyapps.yaml:
+          apiVersion: 1
+          providers:
+          - name: healthyapps
+            folder: Health Auto Export
+            type: file
+            options:
+              path: /var/lib/grafana/dashboards/healthyapps
+      defaultCurlOptions: "-fsSL --retry 3"
+      dashboards:
+        healthyapps:
+          health-metrics:
+            url: https://raw.githubusercontent.com/HealthyApps/health-auto-export-server/d0f3a78e17aeb2e01fb7da89a4bf25f67057fc0e/dashboard-examples/health-metrics.json
+          workout-details:
+            url: https://raw.githubusercontent.com/HealthyApps/health-auto-export-server/d0f3a78e17aeb2e01fb7da89a4bf25f67057fc0e/dashboard-examples/workout-details.json
+          workouts-table:
+            url: https://raw.githubusercontent.com/HealthyApps/health-auto-export-server/d0f3a78e17aeb2e01fb7da89a4bf25f67057fc0e/dashboard-examples/workouts-table.json
+            datasource:
+            - name: DS_INFINITY-DATASOURCE-SERVER-INTERNAL
+              value: bee4k1otx5urkf
       admin:
         existingSecret: grafana-admin
         userKey: admin-user

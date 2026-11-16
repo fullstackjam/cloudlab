@@ -74,3 +74,34 @@ mv .local/grafana-apple-health-datasource.sops.yaml secrets/grafana-apple-health
 ```
 
 将密文加入 `secrets/kustomization.yaml`。Grafana 会加载数据源，并读取由 `platform/infra/kustomization.yaml` 生成的 Apple Health 面板 ConfigMap。
+
+## Health Auto Export 官方面板
+
+Grafana 的 **Health Auto Export** 文件夹载入官方的 **Health Metrics**、**Workouts Table** 和 **Workout Details**。这三块面板通过 Infinity 查询 `health-auto-export` 服务的 HTTP API，该服务将收到的数据存入集群内 MongoDB。原有 Apple Health 面板继续查询自己的 InfluxDB 数据源，两边的历史数据独立。服务代码和面板在部署时从固定的上游 Git 提交获取。 [官方配置说明](https://github.com/HealthyApps/health-auto-export-server#setup-guide)
+
+首次部署先准备以下两个 SOPS Secret，并通过 `secrets/kustomization.yaml` 加载。
+
+- `apps/health-auto-export` 包含独立的 `write-token`、`read-token`、`mongo-root-password` 和 `mongo-app-password`。两个 API token 都用 `sk-` 加随机字符串。MongoDB 密码用随机十六进制字符串以便上游构造连接 URL。首次启动时，MongoDB 为应用用户授予该数据库的读写权限。
+- `apps/grafana-health-auto-export-datasource` 带 `grafana_datasource: "1"` 标签，并以 `health-auto-export.yaml` 为键提供下列数据源。 `<read-token>` 与服务使用的读取 token 一致。
+
+```yaml
+apiVersion: 1
+datasources:
+  - name: Health Auto Export
+    uid: bee4k1otx5urkf
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    url: http://health-auto-export.apps.svc.cluster.local:3001
+    editable: false
+    jsonData:
+      auth_method: none
+      httpHeaderName1: api-key
+      allowedHosts:
+        - http://health-auto-export.apps.svc.cluster.local:3001
+    secureJsonData:
+      httpHeaderValue1: <read-token>
+```
+
+iPhone 可以复制现有的 **Health Metrics** 和 **Workouts** 自动化，各自指向 `https://health-ingest.<domain>/api/data`。两条都使用 JSON，并设置 `api-key` 为写入 token。先用 **Manual Upload** 上传一个短时间段，再打开对应面板核对。原有上传路径与官方面板的上传路径可以同时使用。
+
+公网入口只转发 `POST /api/data`。Grafana 使用读取 token，在集群内查询官方服务。MongoDB 使用单节点持久卷，现有 COS 备份任务只覆盖原 InfluxDB bucket 和 Kuma 数据。

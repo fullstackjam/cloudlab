@@ -1,0 +1,247 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-auto-export-mongo
+  namespace: apps
+spec:
+  clusterIP: None
+  selector:
+    app: health-auto-export-mongo
+  ports:
+  - port: 27017
+    name: mongo
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-auto-export-mongo-init
+  namespace: apps
+data:
+  create-user.js: |
+    db.getSiblingDB('admin').createUser({
+      user: 'health-auto-export',
+      pwd: process.env.MONGO_APP_PASSWORD,
+      roles: [{ role: 'readWrite', db: 'health-auto-export' }],
+    });
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: health-auto-export-mongo
+  namespace: apps
+spec:
+  serviceName: health-auto-export-mongo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-auto-export-mongo
+  template:
+    metadata:
+      labels:
+        app: health-auto-export-mongo
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: mongo
+        image: mongo:8.0@sha256:d97fea17ccb8d004cd137be8dab54d70d0df11be69c9f422aefe4484c8414ab7
+        args: ["--wiredTigerCacheSizeGB=0.25"]
+        ports:
+        - name: mongo
+          containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: admin
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: health-auto-export
+              key: mongo-root-password
+        - name: MONGO_APP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: health-auto-export
+              key: mongo-app-password
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+        - name: init
+          mountPath: /docker-entrypoint-initdb.d
+          readOnly: true
+        readinessProbe:
+          tcpSocket:
+            port: mongo
+        resources:
+          requests:
+            cpu: 100m
+            memory: 384Mi
+          limits:
+            memory: 1Gi
+      volumes:
+      - name: init
+        configMap:
+          name: health-auto-export-mongo-init
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      storageClassName: local-path
+      accessModes: [ReadWriteOnce]
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: health-auto-export
+  namespace: apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: health-auto-export
+  template:
+    metadata:
+      labels:
+        app: health-auto-export
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: prepare-server
+        image: node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
+        workingDir: /server
+        command: ["/bin/sh", "-ec"]
+        args:
+        - |
+          node --input-type=module <<'JS'
+          import { createHash } from 'node:crypto';
+          import { writeFile } from 'node:fs/promises';
+
+          const revision = 'd0f3a78e17aeb2e01fb7da89a4bf25f67057fc0e';
+          const response = await fetch(
+            'https://codeload.github.com/HealthyApps/health-auto-export-server/tar.gz/' + revision,
+            { signal: AbortSignal.timeout(60000) },
+          );
+          if (!response.ok) throw new Error('Upstream download failed: ' + response.status);
+          const archive = Buffer.from(await response.arrayBuffer());
+          const checksum = createHash('sha256').update(archive).digest('hex');
+          if (checksum !== '2762d6a6ccd51ee11d9c8013b59a4b3462bcfe1d3c4ce07927f0b1faefe92c7b') {
+            throw new Error('Unexpected upstream archive checksum');
+          }
+          await writeFile('/tmp/health-auto-export.tar.gz', archive);
+          JS
+          tar -xzf /tmp/health-auto-export.tar.gz --strip-components=2 --wildcards '*/server/*'
+          # Avoid writing exported health readings or locations to container logs.
+          sed -i -E '/console\.log\(metrics\);/d; s/(console\.error\([^,]*), error\);/\1);/' src/controllers/*.ts
+          yarn install --frozen-lockfile --non-interactive --network-timeout 60000
+          yarn build
+        volumeMounts:
+        - name: server
+          mountPath: /server
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+      containers:
+      - name: server
+        image: node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
+        workingDir: /server
+        command: ["node", "dist/app.js"]
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: MONGO_HOST
+          value: health-auto-export-mongo
+        - name: MONGO_PORT
+          value: "27017"
+        - name: MONGO_DB
+          value: health-auto-export
+        - name: MONGO_USERNAME
+          value: health-auto-export
+        - name: MONGO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: health-auto-export
+              key: mongo-app-password
+        - name: READ_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: health-auto-export
+              key: read-token
+        - name: WRITE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: health-auto-export
+              key: write-token
+        ports:
+        - name: http
+          containerPort: 3001
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+        volumeMounts:
+        - name: server
+          mountPath: /server
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+      volumes:
+      - name: server
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-auto-export
+  namespace: apps
+spec:
+  selector:
+    app: health-auto-export
+  ports:
+  - name: http
+    port: 3001
+    targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: health-auto-export
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - health-ingest.${CLOUDLAB_DOMAIN}
+  rules:
+  - matches:
+    - method: POST
+      path:
+        type: Exact
+        value: /api/data
+    backendRefs:
+    - name: health-auto-export
+      port: 3001
