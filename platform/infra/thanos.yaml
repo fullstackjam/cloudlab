@@ -16,7 +16,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: thanos
-        image: quay.io/thanos/thanos:v0.39.2
+        image: quay.io/thanos/thanos:v0.42.5
         args:
         - query
         - --http-address=0.0.0.0:10902
@@ -69,7 +69,7 @@ spec:
         fsGroup: 65534
       containers:
       - name: thanos
-        image: quay.io/thanos/thanos:v0.39.2
+        image: quay.io/thanos/thanos:v0.42.5
         args:
         - store
         - --http-address=0.0.0.0:10902
@@ -140,7 +140,7 @@ spec:
         fsGroup: 65534
       containers:
       - name: thanos
-        image: quay.io/thanos/thanos:v0.39.2
+        image: quay.io/thanos/thanos:v0.42.5
         args:
         - compact
         - --wait

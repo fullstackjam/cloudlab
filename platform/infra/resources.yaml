@@ -60,11 +60,13 @@ spec:
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: 79.0.0
+      version: 93.3.0
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
         namespace: flux-system
+  upgrade:
+    crds: CreateReplace
   postRenderers:
   - kustomize:
       patches:
@@ -119,8 +121,8 @@ spec:
         retentionSize: 8GB
         disableCompaction: true
         thanos:
-          image: quay.io/thanos/thanos:v0.39.2
-          version: v0.39.2
+          image: quay.io/thanos/thanos:v0.42.5
+          version: v0.42.5
           objectStorageConfig:
             existingSecret:
               name: thanos-objstore
