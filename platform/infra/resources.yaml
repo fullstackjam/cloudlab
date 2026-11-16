@@ -112,6 +112,7 @@ spec:
             type: file
             options:
               path: /var/lib/grafana/dashboards/healthyapps
+      defaultCurlOptions: "-fsSL --retry 3"
       dashboards:
         healthyapps:
           health-metrics:
