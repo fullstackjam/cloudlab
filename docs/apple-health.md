@@ -33,4 +33,42 @@ Health Auto Export 使用 REST API 自动化发送 JSON。集群中的 `apple-he
 
 在 Grafana 的 **Dashboards** 中打开 **Apple Health**。面板显示已同步的数据，包括每日步数、步行和跑步距离、心率和训练记录。每日数据按 Asia/Shanghai 划分，训练统计使用面板选定的时间范围。
 
-新环境先为 Grafana 创建一个只有 `apple-health` 读取权限的 InfluxDB token。以 `secrets/grafana-apple-health-datasource.sops.yaml` 为模板，将新 token 放进数据源配置的 `secureJsonData.token`，再用本次部署的 age 公钥重新加密 Secret。保留 `grafana_datasource: "1"` 标签和 `apple-health-influxdb` 数据源 UID。将密文加入 `secrets/kustomization.yaml` 后，Grafana 会加载数据源。面板定义在 `platform/infra/dashboards/apple-health.json`，由 `platform/infra/kustomization.yaml` 生成 ConfigMap 供 Grafana 加载。
+新环境先为 Grafana 创建一个只有 `apple-health` 读取权限的 InfluxDB token。在忽略的 `.local/` 目录下按下面的模板准备 Secret，将 token 填进 `secureJsonData.token`。
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-apple-health-datasource
+  namespace: apps
+  labels:
+    grafana_datasource: "1"
+type: Opaque
+stringData:
+  apple-health-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Apple Health
+        uid: apple-health-influxdb
+        type: influxdb
+        access: proxy
+        url: http://influxdb.apps.svc.cluster.local:8086
+        editable: false
+        jsonData:
+          version: Flux
+          organization: cloudlab
+          defaultBucket: apple-health
+        secureJsonData:
+          token: <bucket-read-token>
+```
+
+将模板保存为 `.local/grafana-apple-health-datasource.yaml`，用 [.sops.yaml](../.sops.yaml) 中本次部署的 age 公钥加密。解密校验通过后，删除本地明文。
+
+```bash
+sops encrypt --filename-override secrets/grafana-apple-health-datasource.sops.yaml \
+  .local/grafana-apple-health-datasource.yaml > .local/grafana-apple-health-datasource.sops.yaml &&
+sops decrypt .local/grafana-apple-health-datasource.sops.yaml > /dev/null &&
+mv .local/grafana-apple-health-datasource.sops.yaml secrets/grafana-apple-health-datasource.sops.yaml
+```
+
+将密文加入 `secrets/kustomization.yaml`。Grafana 会加载数据源，并读取由 `platform/infra/kustomization.yaml` 生成的 Apple Health 面板 ConfigMap。
