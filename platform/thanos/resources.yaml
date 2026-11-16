@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-query
+  namespace: apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thanos-query
+  template:
+    metadata:
+      labels:
+        app: thanos-query
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: thanos
+        image: quay.io/thanos/thanos:v0.42.5
+        args:
+        - query
+        - --http-address=0.0.0.0:10902
+        - --query.replica-label=prometheus_replica
+        - --endpoint=monitoring-kube-prometheus-thanos-discovery.apps.svc.cluster.local:10901
+        - --endpoint=thanos-store.apps.svc.cluster.local:10901
+        ports:
+        - name: http
+          containerPort: 10902
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thanos-query
+  namespace: apps
+spec:
+  selector:
+    app: thanos-query
+  ports:
+  - name: http
+    port: 10902
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-store
+  namespace: apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thanos-store
+  template:
+    metadata:
+      labels:
+        app: thanos-store
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65534
+      containers:
+      - name: thanos
+        image: quay.io/thanos/thanos:v0.42.5
+        args:
+        - store
+        - --http-address=0.0.0.0:10902
+        - --grpc-address=0.0.0.0:10901
+        - --objstore.config-file=/etc/thanos/objstore.yml
+        - --sync-block-duration=2m
+        - --data-dir=/var/thanos
+        ports:
+        - name: grpc
+          containerPort: 10901
+        - name: http
+          containerPort: 10902
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            memory: 768Mi
+        volumeMounts:
+        - name: objstore
+          mountPath: /etc/thanos
+          readOnly: true
+        - name: cache
+          mountPath: /var/thanos
+      volumes:
+      - name: objstore
+        secret:
+          secretName: thanos-objstore
+      - name: cache
+        emptyDir:
+          sizeLimit: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thanos-store
+  namespace: apps
+spec:
+  selector:
+    app: thanos-store
+  ports:
+  - name: grpc
+    port: 10901
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thanos-compactor
+  namespace: apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: thanos-compactor
+  template:
+    metadata:
+      labels:
+        app: thanos-compactor
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 65534
+      containers:
+      - name: thanos
+        image: quay.io/thanos/thanos:v0.42.5
+        args:
+        - compact
+        - --wait
+        - --http-address=0.0.0.0:10902
+        - --objstore.config-file=/etc/thanos/objstore.yml
+        - --data-dir=/var/thanos
+        - --retention.resolution-raw=0s
+        - --retention.resolution-5m=0s
+        - --retention.resolution-1h=0s
+        ports:
+        - name: http
+          containerPort: 10902
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        volumeMounts:
+        - name: objstore
+          mountPath: /etc/thanos
+          readOnly: true
+        - name: scratch
+          mountPath: /var/thanos
+      volumes:
+      - name: objstore
+        secret:
+          secretName: thanos-objstore
+      - name: scratch
+        emptyDir:
+          sizeLimit: 12Gi

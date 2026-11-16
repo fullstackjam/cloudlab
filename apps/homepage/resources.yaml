@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  namespace: apps
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: homepage
+  template:
+    metadata:
+      labels:
+        app: homepage
+    spec:
+      containers:
+      - name: homepage
+        image: ghcr.io/gethomepage/homepage:v2.8.0
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 512Mi
+        readinessProbe:
+          tcpSocket:
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        env:
+        - name: HOMEPAGE_ALLOWED_HOSTS
+          value: home.${CLOUDLAB_DOMAIN}
+        volumeMounts:
+        - name: config
+          mountPath: /app/config/settings.yaml
+          subPath: settings.yaml
+        - name: config
+          mountPath: /app/config/services.yaml
+          subPath: services.yaml
+        - name: config
+          mountPath: /app/config/widgets.yaml
+          subPath: widgets.yaml
+        - name: config
+          mountPath: /app/config/bookmarks.yaml
+          subPath: bookmarks.yaml
+        - name: config
+          mountPath: /app/config/docker.yaml
+          subPath: docker.yaml
+        - name: config
+          mountPath: /app/config/kubernetes.yaml
+          subPath: kubernetes.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: homepage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homepage
+  namespace: apps
+spec:
+  selector:
+    app: homepage
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage
+  namespace: apps
+data:
+  settings.yaml: 'title: Jam CloudLab
+
+    '
+  services.yaml: |
+    - CloudLab:
+        - Status:
+            href: https://status.${CLOUDLAB_DOMAIN}
+        - Grafana:
+            href: https://grafana.${CLOUDLAB_DOMAIN}
+        - InfluxDB:
+            href: https://influxdb.${CLOUDLAB_DOMAIN}
+  widgets.yaml: '[]
+
+    '
+  bookmarks.yaml: '[]
+
+    '
+  docker.yaml: '{}
+
+    '
+  kubernetes.yaml: 'mode: disabled
+
+    '
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: home
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - home.${CLOUDLAB_DOMAIN}
+  rules:
+  - backendRefs:
+    - name: homepage
+      port: 3000

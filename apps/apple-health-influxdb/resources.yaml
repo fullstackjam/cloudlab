@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apple-health-ingester
+  namespace: apps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apple-health-ingester
+  template:
+    metadata:
+      labels:
+        app: apple-health-ingester
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: ingester
+        image: irvinlim/apple-health-ingester:v0.5.0@sha256:f0072cade435b7f47bc3dbb8425288ec961cc5cd91a5473d799aabc2bc319bce
+        args:
+        - --backend.influxdb
+        - --http.listenAddr=:8080
+        - --http.authToken=$(INGESTER_AUTH_TOKEN)
+        - --influxdb.serverURL=http://influxdb:8086
+        - --influxdb.authToken=$(INFLUX_WRITE_TOKEN)
+        - --influxdb.orgName=cloudlab
+        - --influxdb.metricsBucketName=apple-health
+        - --influxdb.workoutsBucketName=apple-health
+        - --influxdb.staticTags=source=health-auto-export
+        env:
+        - name: INGESTER_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: apple-health-ingester
+              key: auth-token
+        - name: INFLUX_WRITE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: apple-health-ingester
+              key: influx-write-token
+        ports:
+        - name: http
+          containerPort: 8080
+        readinessProbe:
+          tcpSocket:
+            port: http
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apple-health-ingester
+  namespace: apps
+spec:
+  selector:
+    app: apple-health-ingester
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: apple-health-ingester
+  namespace: apps
+spec:
+  parentRefs:
+  - name: traefik-gateway
+    namespace: infra
+    sectionName: web
+  hostnames:
+  - health-ingest.${CLOUDLAB_DOMAIN}
+  rules:
+  - matches:
+    - method: POST
+      path:
+        type: Exact
+        value: /api/healthautoexport/v1/influxdb/ingest
+    backendRefs:
+    - name: apple-health-ingester
+      port: 8080

@@ -1,0 +1,13 @@
+[Unit]
+Description=Back up CloudLab application data to COS
+Wants=network-online.target
+After=network-online.target k3s.service
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+Environment=KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+Environment=CLOUDLAB_KUBE_CONTEXT=default
+EnvironmentFile=/etc/cloudlab/backup.env
+UMask=0077
+ExecStart=/opt/cloudlab-backup/backup.sh

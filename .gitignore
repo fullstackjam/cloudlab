@@ -1,0 +1,12 @@
+.tools/
+.local/
+*.tfstate*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+.terraform/
+.env*
+*.agekey
+age.key
+kubeconfig*
+*.local.yaml
