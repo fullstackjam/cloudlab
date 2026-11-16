@@ -115,6 +115,8 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_S
 
 如果从已部署的仓库复制源码到另一个 GitHub 仓库，先在副本里把 `clusters/cloudlab/flux-system/gotk-components.yaml` 和 `gotk-sync.yaml` 恢复为注释占位文件，再用新部署的 age 公钥和凭据生成密文。推送这些改动后，Flux 会为新仓库生成控制器和同步清单。原仓库上的集群重建沿用已经提交的同步清单。
 
+全新 InfluxDB 环境先从 `apps/kustomization.yaml` 和 `secrets/kustomization.yaml` 移除 Apple Health 接收器及其密文引用。InfluxDB 就绪后，按 [Apple Health 接入](apple-health.md#iphone-自动导入与-grafana) 生成新 token，添加密文和引用，再启用接收器。
+
 ## 5. 执行一次 Flux bootstrap
 
 在管理机的仓库根目录，先用 kubeconfig 核对节点，确认 SSH 转发连接的是目标 CVM。GitHub PAT 通过 `GITHUB_TOKEN` 注入。通过 `SOPS_AGE_KEY_FILE` 提供私钥文件，或注入 `SOPS_AGE_KEY`。下面示例使用私钥文件，凭据库注入示例见 [凭据清单](secrets.md#注入引导凭据)。

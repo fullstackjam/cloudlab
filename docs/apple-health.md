@@ -23,6 +23,12 @@ influx write --host http://127.0.0.1:18086 --org cloudlab --bucket apple-health 
 
 ## iPhone 自动导入与 Grafana
 
-从 iPhone 自动发送时，选支持 InfluxDB v2 line protocol 的导出应用，并为手机提供能访问写接口的私有网络，或按 [DNS 与访问控制](dns.md) 发布受保护的 `https://health.<domain>`。在导出应用中配置上述组织、bucket 和仅写入该 bucket 的 token。
+Health Auto Export 使用 REST API 自动化发送 JSON。集群中的 `apple-health-ingester` 验证请求并把指标或训练记录写入 `apple-health` bucket。
+
+首次部署新环境时，先启动 InfluxDB，再为接收器准备随机生成的导出 token 和仅能写入 `apple-health` 的 InfluxDB token。创建 `apps/apple-health-ingester` Secret，键名为 `auth-token` 和 `influx-write-token`，用本次部署的 age 公钥将其加密为 `secrets/apple-health-ingester.sops.yaml`。把密文和接收器清单分别加入 `secrets/` 和 `apps/` 的 Kustomize 入口。
+
+- URL 为 `https://health-ingest.<domain>/api/healthautoexport/v1/influxdb/ingest`。发布方式见 [DNS 与访问控制](dns.md)。
+- HTTP Header 的名称为 `Authorization`，值为 `Bearer <导出 token>`。使用为接收器生成的导出 token。InfluxDB 的写入 token 由接收器持有。
+- 保留原有导出任务的数据类型、指标和频率。改完 URL 和 header 后，先用 **Manual Upload** 发一个短时间段，并从 InfluxDB 核对是否写入。
 
 在 Grafana 中查看 Apple Health 时，单独为数据源创建一个只有 `apple-health` 读取权限的 token。若通过 GitOps 配置数据源，用 SOPS 管理该 token。使用 `http://influxdb.apps.svc.cluster.local:8086` 作为 Grafana 的 InfluxDB 地址。
