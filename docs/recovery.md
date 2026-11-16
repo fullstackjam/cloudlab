@@ -85,7 +85,7 @@ python3 infra/restore.py \
   --phase activate --source-host "$CLOUDLAB_SOURCE"
 ```
 
-The script checks that the source is a different machine watching the same repository. It stops the source's reconciliation, public connector, application writers, metrics writers, and notifications, then takes a final backup. It imports that snapshot into the target before switching its Git source to `main`. This causes a service interruption during the final backup, restore, and reconciliation.
+The script checks that the source is a different machine watching the same repository. It stops the source's reconciliation, public connector, application writers, metrics writers, and notifications, then takes a final backup. It imports that snapshot into the target, then updates the temporary branch’s own Flux source to `main` before changing the live source. This prevents an older reconciliation from switching the cluster back to the temporary branch. This causes a service interruption during the final backup, restore, and reconciliation.
 
 If the old node is confirmed stopped or lost, use `--source-unavailable` instead of `--source-host`. This is an assertion about the old node's actual state, not a shortcut around checking it. Never run two Compactors or two Sidecars with the same external labels against the same object prefix.
 

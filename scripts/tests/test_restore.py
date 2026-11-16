@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -43,6 +44,47 @@ class RecoveryTest(unittest.TestCase):
             thanos = yaml.safe_load((repo / files[4]).read_text())["spec"]["values"]["prometheus"]["prometheusSpec"]["thanos"]
             self.assertNotIn("objectStorageConfig", thanos)
             self.assertNotIn("additionalArgs", thanos)
+
+    def test_handover_converges_to_main_and_is_safe_to_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            origin, repo = Path(directory) / "origin.git", Path(directory) / "repo"
+            def git(*args, cwd=None):
+                return subprocess.check_output(["git", *args], cwd=cwd, stderr=subprocess.DEVNULL, text=True).strip()
+            git("init", "--bare", str(origin))
+            git("init", "-b", "main", str(repo))
+            git("config", "user.name", "Recovery test", cwd=repo)
+            git("config", "user.email", "test@example.com", cwd=repo)
+            git("remote", "add", "origin", str(origin), cwd=repo)
+            sync = repo / "infra/flux/flux-system/gotk-sync.yaml"
+            sync.parent.mkdir(parents=True)
+            sync.write_text(yaml.safe_dump({"kind": "GitRepository", "spec": {"ref": {"branch": "main"}}}))
+            (repo / "ingress").write_text("enabled")
+            git("add", ".", cwd=repo)
+            git("commit", "-m", "Main deployment", cwd=repo)
+            git("push", "origin", "main", cwd=repo)
+            main = git("rev-parse", "HEAD", cwd=repo)
+            branch = "codex/recovery-test"
+            git("checkout", "-b", branch, cwd=repo)
+            sync.write_text(yaml.safe_dump({"kind": "GitRepository", "spec": {"ref": {"branch": branch}}}))
+            (repo / "ingress").write_text("disabled")
+            git("commit", "-am", "Isolated recovery", cwd=repo)
+            git("push", "origin", branch, cwd=repo)
+            git("checkout", "main", cwd=repo)
+            runner = recovery.Recovery.__new__(recovery.Recovery)
+            runner.repo = repo
+            original_command = recovery.command
+            def quiet_command(args, **kwargs):
+                return original_command(args, **dict(kwargs, quiet=True))
+            with patch.object(recovery, "command", side_effect=quiet_command):
+                runner.handover_branch(branch)
+                handed_over = git("--git-dir=" + str(origin), "rev-parse", branch)
+                runner.handover_branch(branch)
+            self.assertEqual(git("--git-dir=" + str(origin), "rev-parse", branch), handed_over)
+            self.assertEqual(git("--git-dir=" + str(origin), "rev-parse", "main"), main)
+            restored_source = yaml.safe_load(git("--git-dir=" + str(origin), "show", branch + ":infra/flux/flux-system/gotk-sync.yaml"))
+            self.assertEqual(restored_source["spec"]["ref"], {"branch": "main"})
+            self.assertEqual(git("--git-dir=" + str(origin), "show", branch + ":ingress"), "disabled")
+            self.assertEqual(git("branch", "--show-current", cwd=repo), "main")
 
     def test_credentials_are_read_in_one_batch(self):
         environment = {"FIRST": "op://Dev/item-one/private-key", "SECOND": "op://Dev/item-one/password",

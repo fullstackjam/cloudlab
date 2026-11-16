@@ -345,8 +345,27 @@ systemctl start cloudlab-backup.service
         self.save()
         self.finish_activation()
 
+    def handover_branch(self, recovery_branch):
+        # Both source branches must point to main before the live ref changes.
+        # Otherwise an in-flight reconciliation can restore the recovery ref.
+        if recovery_branch != "main" and command(["git", "ls-remote", "--heads", "origin", recovery_branch], cwd=self.repo, quiet=True).strip():
+            command(["git", "fetch", "origin", recovery_branch], cwd=self.repo)
+            command(["git", "checkout", "-B", recovery_branch, "FETCH_HEAD"], cwd=self.repo)
+            sync = self.repo / "infra/flux/flux-system/gotk-sync.yaml"
+            documents = list(yaml.safe_load_all(sync.read_text()))
+            for document in documents:
+                if document and document.get("kind") == "GitRepository":
+                    document["spec"]["ref"] = {"branch": "main"}
+            sync.write_text(yaml.safe_dump_all(documents, sort_keys=False))
+            command(["git", "add", str(sync)], cwd=self.repo)
+            if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=self.repo).returncode:
+                command(["git", "commit", "-m", "Hand the recovered cluster over to main"], cwd=self.repo)
+            command(["git", "push", "origin", recovery_branch], cwd=self.repo)
+            command(["git", "checkout", "main"], cwd=self.repo)
+
     def finish_activation(self):
         recovery_branch = self.state.get("recovery_branch", "main")
+        self.handover_branch(recovery_branch)
         self.ssh('''set -e
 kubectl --context default -n flux-system patch gitrepository flux-system --type=merge -p '{"spec":{"ref":{"branch":"main"}}}'
 stamp=$(date -u +%FT%TZ)
