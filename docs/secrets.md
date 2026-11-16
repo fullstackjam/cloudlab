@@ -33,7 +33,7 @@ The table lists all Secrets referenced by the current resources. Generate new ci
 
 Create the InfluxDB receiver's `influx-write-token` after initializing InfluxDB. Grant it write access only to the `apple-health` bucket. The phone uses the receiver's `auth-token`, not the InfluxDB token. The official Health Auto Export service uses a separate pair of read and write tokens.
 
-Set up Kuma's administrator and notification credentials in its UI, then save them in the credential vault. Kubernetes Secrets do not initialize them. To change login credentials for an existing InfluxDB or MongoDB instance, also rotate them inside the database. Updating the initialization Secret does not reset an existing database.
+For an initial deployment, set up Kuma's administrator and notifications in its UI, then save the login in the credential vault. The [recovery workflow](recovery.md) recreates them from the saved inputs. Kubernetes Secrets do not initialize them. To change login credentials for an existing InfluxDB or MongoDB instance, also rotate them inside the database. Updating the initialization Secret does not reset an existing database.
 
 ## Encrypt and commit secrets
 

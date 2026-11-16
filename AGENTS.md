@@ -2,6 +2,10 @@
 
 See the [README](README.md#repository-layout) for directory ownership and entry points, and the [bootstrap guide](docs/bootstrap.md) for deployment steps.
 
+## Node recovery
+
+For a request to restore this environment on a specified machine, follow [the recovery workflow](docs/recovery.md) and use `infra/restore.py`. Discover the target, source node, disk, and existing credentials before asking for values that are already available. Carry the task through data verification and the requested cutover; do not stop after bootstrap or Pod readiness. Reuse the existing age identity, bucket, Tunnel, and domains. Keep recovery checkpoints and plaintext credentials outside Git, and do not depend on an earlier chat or temporary helper scripts.
+
 ## Scope of changes
 
 - Write repository documentation, comments, and examples in plain English.

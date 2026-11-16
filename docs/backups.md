@@ -125,6 +125,8 @@ Record the snapshot used, data checks, and actual recovery time outside this rep
 
 ## Replace a node
 
+Use the [node recovery workflow](recovery.md) for the complete procedure and automated entry point.
+
 Retrieve the age private key, Git access credentials, COS keys, restic password, OpenTofu state, and infrastructure resource IDs. Follow the [bootstrap guide](bootstrap.md) to prepare the replacement node, data disk, and k3s. Bootstrap Flux from Git, then restore application data and accounts.
 
-Before reusing a data disk, decide whether to recover the existing cluster state or rebuild it, then handle `/data/k3s/server` accordingly. Only one k3s server may use that directory. Confirm that the old node has stopped using the disk before switching. When rebuilding the Tunnel connector, rotate its token and check the resource records in OpenTofu state.
+Before reusing a data disk, decide whether to recover the existing cluster state or rebuild it, then handle `/data/k3s/server` accordingly. Only one k3s server may use that directory. Confirm that the old node has stopped using the disk before switching. Reuse the existing Tunnel and connector credential unless the credential needs to be revoked; stop the old connector before enabling the restored node.

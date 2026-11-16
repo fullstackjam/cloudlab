@@ -31,7 +31,7 @@ The official Health Auto Export dashboards query MongoDB through an HTTP API. In
 
 | Directory | Contents |
 | --- | --- |
-| [infra/](infra/) | Cloud resources and cluster bootstrap. OpenTofu files are at this level; `bootstrap.sh` installs Flux; `flux/` defines sync entries, dependencies, and shared settings; `backup/` contains host backup and restore scripts and systemd units |
+| [infra/](infra/) | Cloud resources and cluster bootstrap. OpenTofu files are at this level; `restore.py` runs node recovery; `bootstrap.sh` installs Flux; `flux/` defines sync entries, dependencies, and shared settings; `backup/` contains host backup and restore scripts and systemd units |
 | [platform/](platform/) | Traefik, cloudflared, kube-prometheus-stack, and Thanos; Gateway API CRDs are in `traefik/crds/` |
 | [apps/](apps/) | One directory per application, containing workloads, Services, PVCs, configuration, HTTPRoutes, and encrypted secrets. Health Auto Export's MongoDB is in that application's directory |
 | [scripts/](scripts/) | Repository validation tools and regression tests in `tests/` |
@@ -48,7 +48,7 @@ Flux syncs in the order `gateway-crds → platform → apps`. Gateway API CRDs m
 1. Follow the [bootstrap guide](docs/bootstrap.md) to prepare the host, cloud resources, credentials, and Git sync.
 2. Use the [credentials guide](docs/secrets.md) to generate, encrypt, and recover credentials, and the [DNS guide](docs/dns.md) to configure domains and routes.
 3. After changing application or platform configuration, run validation, push to the branch Flux watches, and verify the synced revision, workloads, and service behavior.
-4. Before replacing a node or data disk, test recovery in an isolated environment using the [backup guide](docs/backups.md), then switch traffic.
+4. To restore this environment on another machine, follow the [recovery workflow](docs/recovery.md). It covers isolated restore, service checks, public cutover, and backup verification. The [backup guide](docs/backups.md) describes export formats and individual restore operations.
 
 The reference deployment uses Ubuntu 24.04 and single-node k3s. The data disk is mounted at `/data`, and local volumes are stored in `/data/k3s/storage`. Requested PVC sizes for local-path storage do not enforce disk quotas; see the monitoring guide for disk capacity and alerts. Node upgrades can interrupt service, so check version compatibility and recovery options first. Check Flux pruning and volume reclaim policies before deleting or moving PVCs.
 
