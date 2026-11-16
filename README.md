@@ -26,6 +26,8 @@ The validation toolchain uses OpenTofu 1.13.9, Kustomize 5.8.3, Helm 3.19.2, Flu
 
 Follow the [bootstrap runbook](docs/bootstrap.md) to prepare the CVM, cloud resources and SOPS credentials, initialize Flux, and verify the first public route.
 
+[Monitoring and long-term metrics](docs/monitoring.md) describes the Thanos and COS data path.
+
 Set `CLOUDLAB_DOMAIN` in [clusters/cloudlab/settings.yaml](clusters/cloudlab/settings.yaml). OpenTofu reads it for the Tunnel ingress. Flux uses the same value for the application hostnames and Homepage links.
 
 ## Rebuild and upgrades

@@ -73,10 +73,35 @@ spec:
         enabled: true
         storageClassName: local-path
         size: 5Gi
+      additionalDataSources:
+      - name: Thanos
+        uid: thanos
+        type: prometheus
+        access: proxy
+        url: http://thanos-query.apps.svc.cluster.local:10902
+        editable: false
     prometheus:
+      thanosService:
+        enabled: true
       prometheusSpec:
         retention: 3d
         retentionSize: 8GB
+        disableCompaction: true
+        thanos:
+          image: quay.io/thanos/thanos:v0.39.2
+          version: v0.39.2
+          objectStorageConfig:
+            existingSecret:
+              name: thanos-objstore
+              key: objstore.yml
+          additionalArgs:
+          - name: shipper.upload-compacted
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
         resources:
           requests:
             memory: 512Mi
