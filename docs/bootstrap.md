@@ -4,7 +4,7 @@
 
 ## 1. 准备 GitHub、主机和工具
 
-- Flux 从 `fullstackjam/cloudlab` 的 `main` 分支读取部署配置和 SOPS 密文。如果源仓库尚未建立，先在 GitHub 创建仓库并推送 `main`。
+- 选择 Flux 读取的 GitHub 仓库和 `main` 分支。参考部署使用 `fullstackjam/cloudlab`。如果源仓库尚未建立，先在 GitHub 创建仓库并推送 `main`。
 - 管理机需要 Git、SSH、OpenTofu、kubectl、Flux 2.9.6、SOPS、age 和凭据管理工具。Flux 2.9.6 对应这里的 Kubernetes 1.34。若需创建 GitHub 仓库，再准备已登录的 GitHub CLI。运行仓库校验还需要 Kustomize、Helm、kubeconform 和带 PyYAML 的 Python 3。工具版本见 [README](../README.md#local-git-and-validation)。从仓库根目录运行 `./scripts/validate.sh`，确认静态校验通过。 [Flux 2.9 支持版本](https://fluxcd.io/blog/2026/06/flux-v2.9.0/#supported-versions)
 - 准备 Ubuntu 24.04 主机及其 SSH 和 sudo 访问。确认 ext4 数据盘已挂载到 `/data`，并核对系统盘、数据盘归属及开机挂载。新主机需先创建 CVM、配置 SSH 和安全组、附加并挂载数据盘。在部署配置中记录 SSH 目标、CVM ID 和数据盘 ID。
 - CVM 需要访问 GitHub、Helm 仓库、镜像仓库及 Cloudflare。保留可信来源的 SSH 入口，Kubernetes API 由 SSH 转发访问。Tunnel 所需出站端口见 [DNS 与访问控制](dns.md)。
@@ -111,6 +111,10 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_S
 
 首次部署按 [SOPS 加密步骤](secrets.md#生成并提交密文) 生成和备份 age 身份，填齐三个应用 Secret，再推送密文和它的 Kustomize 引用。重建时使用 Git 中已有的密文与对应的 age 私钥。若 Tunnel connector token 已轮换，先更新密文并推送。
 
+如果从已部署的仓库复制源码到另一个 GitHub 仓库，先在副本里把 `clusters/cloudlab/flux-system/gotk-components.yaml` 和 `gotk-sync.yaml` 恢复为注释占位文件，再用新部署的 age 公钥和凭据生成密文。推送这些改动后，Flux 会为新仓库生成控制器和同步清单。原仓库上的集群重建沿用已经提交的同步清单。
+
+使用自己的域名时，在首次计划和部署前对齐 [Tunnel ingress](../infra/main.tf) 和 [应用清单](../apps/resources.yaml) 中的 HTTPRoute、`HOMEPAGE_ALLOWED_HOSTS` 与 Homepage 链接。DNS 记录使用新的 Tunnel ID。
+
 ## 5. 执行一次 Flux bootstrap
 
 在管理机的仓库根目录，先用 kubeconfig 核对节点，确认 SSH 转发连接的是目标 CVM。GitHub PAT 通过 `GITHUB_TOKEN` 注入。通过 `SOPS_AGE_KEY_FILE` 提供私钥文件，或注入 `SOPS_AGE_KEY`。下面示例使用私钥文件，凭据库注入示例见 [凭据清单](secrets.md#注入引导凭据)。
@@ -118,8 +122,10 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_S
 ```bash
 export KUBECONFIG="$PWD/.local/kubeconfig-cloudlab"
 kubectl get nodes -o wide
-GITHUB_REPOSITORY=cloudlab SOPS_AGE_KEY_FILE="$PWD/.local/age.agekey" ./scripts/bootstrap.sh
+GITHUB_REPOSITORY=fullstackjam/cloudlab SOPS_AGE_KEY_FILE="$PWD/.local/age.agekey" ./scripts/bootstrap.sh
 ```
+
+将 `GITHUB_REPOSITORY` 换成目标仓库的 `OWNER/REPO`。已有 GitHub `origin` 的 checkout 也支持只传仓库名，脚本从 `origin` 取 owner。组织仓库设置 `GITHUB_PERSONAL=false`。
 
 脚本先本地验证密文可解，再创建命名空间和 `flux-system/sops-age`，最后安装 Flux、登记 deploy key，并把生成的 `gotk-components.yaml` 和 `gotk-sync.yaml` 提交到 GitHub。后续同步使用集群内的 deploy key。GitHub PAT 过期或撤销后，若 deploy key 失效，按官方流程轮换。 [Flux deploy key 轮换](https://fluxcd.io/flux/installation/bootstrap/github/#deploy-key-rotation)
 

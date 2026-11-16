@@ -54,7 +54,7 @@ mv .local/credentials.sops.yaml secrets/credentials.sops.yaml
 ```bash
 unset SOPS_AGE_KEY_FILE
 KUBECONFIG="$PWD/.local/kubeconfig-cloudlab" \
-GITHUB_REPOSITORY=cloudlab \
+GITHUB_REPOSITORY=fullstackjam/cloudlab \
 GITHUB_TOKEN="op://${CLOUDLAB_VAULT:?Set the vault name}/CloudLab GitHub bootstrap/token" \
 SOPS_AGE_KEY="op://${CLOUDLAB_VAULT:?Set the vault name}/CloudLab SOPS age/private-key" \
 op run -- ./scripts/bootstrap.sh
