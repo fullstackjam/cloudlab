@@ -31,7 +31,9 @@ Health Auto Export 使用 REST API 自动化发送 JSON。集群中的 `apple-he
 - HTTP Header 的名称为 `Authorization`，值为 `Bearer <导出 token>`。使用为接收器生成的导出 token。InfluxDB 的写入 token 由接收器持有。
 - 保留原有导出任务的数据类型、指标和频率。改完 URL 和 header 后，先用 **Manual Upload** 发一个短时间段，并从 InfluxDB 核对是否写入。
 
-在 Grafana 的 **Dashboards** 中打开 **Apple Health**。面板显示已同步的数据，包括每日步数、步行和跑步距离、心率和训练记录。每日数据按 Asia/Shanghai 划分，训练统计使用面板选定的时间范围。
+在 Grafana 的 **Dashboards** 中打开 **Apple Health**。面板包含活动趋势、训练心率热力图、按类型统计的每周训练时长、训练明细和耳机音量。每日数据按 Asia/Shanghai 划分，训练统计使用面板选定的时间范围。
+
+面板改编自 Marrow Health 的 Body Ops，沿用其概览卡片、趋势图和热力图，并改用 CloudLab 的 `apple-health` bucket 和字段。当前入库的心率指标来自训练和训练后恢复样本。上游代码采用 MIT 许可，版权和许可文本保存在 [apple-health-MIT.txt](../platform/infra/dashboards/apple-health-MIT.txt)。 [Body Ops 源文件](https://github.com/MarrowHealth/built-with-marrow/blob/7d6814aad3ccd362ce36635de03046ea23a9d567/projects/body-ops/grafana/dashboards/body-ops.json)
 
 新环境先为 Grafana 创建一个只有 `apple-health` 读取权限的 InfluxDB token。在忽略的 `.local/` 目录下按下面的模板准备 Secret，将 token 填进 `secureJsonData.token`。
 

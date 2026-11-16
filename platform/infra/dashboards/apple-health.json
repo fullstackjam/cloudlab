@@ -2,34 +2,42 @@
   "uid": "apple-health",
   "title": "Apple Health",
   "tags": [
-    "cloudlab",
     "apple-health"
   ],
-  "description": "CloudLab Apple Health export and workout history.",
   "timezone": "Asia/Shanghai",
-  "schemaVersion": 41,
-  "version": 1,
   "editable": false,
+  "graphTooltip": 1,
+  "refresh": "",
+  "schemaVersion": 41,
+  "version": 2,
   "time": {
     "from": "now-30d",
     "to": "now"
   },
+  "fiscalYearStartMonth": 0,
+  "liveNow": false,
+  "annotations": {
+    "list": []
+  },
+  "description": "基于 Marrow Health 的 Body Ops 面板，使用 CloudLab 的 Apple Health 数据。",
   "panels": [
     {
+      "type": "row",
+      "title": "概览",
       "id": 1,
-      "title": "每日同步步数",
-      "description": "按北京时间分日汇总已同步的步数。",
-      "type": "timeseries",
+      "collapsed": false,
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 12,
-        "h": 7
+        "w": 24,
+        "h": 1
       },
-      "datasource": {
-        "type": "influxdb",
-        "uid": "apple-health-influxdb"
-      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "步数 · 最近记录日",
+      "description": "选定范围内最近有同步数据的一天。",
       "targets": [
         {
           "refId": "A",
@@ -42,94 +50,46 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: 步",
+          "unit": "short",
+          "decimals": 0,
           "color": {
             "mode": "fixed",
-            "fixedColor": "blue"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 2,
-            "fillOpacity": 35,
-            "spanNulls": false
+            "fixedColor": "#3b82f6"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "showLegend": false
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single"
-        }
-      }
-    },
-    {
-      "id": 2,
-      "title": "心率",
-      "description": "按面板时间分辨率显示已同步心率的平均值。",
-      "type": "timeseries",
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 12,
-        "h": 7
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center",
+        "showPercentChange": false,
+        "wideLayout": true
       },
+      "id": 2,
       "datasource": {
         "type": "influxdb",
         "uid": "apple-health-influxdb"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "apple-health-influxdb"
-          },
-          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"heart_rate_data_bpm\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "suffix: bpm",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "spanNulls": false
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      }
-    },
-    {
-      "id": 3,
-      "title": "每日步行和跑步距离",
-      "description": "按北京时间分日汇总已同步的步行和跑步距离。",
-      "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 7,
-        "w": 12,
-        "h": 7
-      },
-      "datasource": {
-        "type": "influxdb",
-        "uid": "apple-health-influxdb"
-      },
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "步行与跑步距离 · 最近记录日",
+      "description": "选定范围内最近有同步数据的一天。",
       "targets": [
         {
           "refId": "A",
@@ -142,44 +102,46 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "lengthkm",
+          "unit": "suffix: km",
+          "decimals": 2,
           "color": {
             "mode": "fixed",
-            "fixedColor": "green"
-          },
-          "custom": {
-            "drawStyle": "bars",
-            "lineWidth": 2,
-            "fillOpacity": 35,
-            "spanNulls": false
+            "fixedColor": "#4ade80"
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "showLegend": false
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single"
-        }
-      }
-    },
-    {
-      "id": 4,
-      "title": "训练次数",
-      "description": "所选时段内带有训练时长的已同步活动。",
-      "type": "stat",
-      "gridPos": {
-        "x": 12,
-        "y": 7,
-        "w": 6,
-        "h": 7
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center",
+        "showPercentChange": false,
+        "wideLayout": true
       },
+      "id": 3,
       "datasource": {
         "type": "influxdb",
         "uid": "apple-health-influxdb"
       },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "训练总次数",
+      "description": "选定范围内的训练记录数。",
       "targets": [
         {
           "refId": "A",
@@ -192,7 +154,12 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: 次"
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#ff5d73"
+          }
         },
         "overrides": []
       },
@@ -204,25 +171,29 @@
           "fields": "",
           "values": false
         },
-        "graphMode": "none",
-        "colorMode": "none"
-      }
-    },
-    {
-      "id": 5,
-      "title": "训练总时长",
-      "description": "所选时段内已同步活动的训练时长合计。",
-      "type": "stat",
-      "gridPos": {
-        "x": 18,
-        "y": 7,
-        "w": 6,
-        "h": 7
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center",
+        "showPercentChange": false,
+        "wideLayout": true
       },
+      "id": 4,
       "datasource": {
         "type": "influxdb",
         "uid": "apple-health-influxdb"
       },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "训练总时长",
+      "description": "选定范围内的训练分钟数。",
       "targets": [
         {
           "refId": "A",
@@ -235,7 +206,12 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "suffix: min"
+          "unit": "suffix: min",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#7c5cff"
+          }
         },
         "overrides": []
       },
@@ -247,20 +223,701 @@
           "fields": "",
           "values": false
         },
-        "graphMode": "none",
-        "colorMode": "none"
+        "graphMode": "area",
+        "colorMode": "value",
+        "textMode": "value",
+        "justifyMode": "center",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "id": 5,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 5
       }
     },
     {
+      "type": "row",
+      "title": "日常活动",
       "id": 6,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "步数与 7 日均线",
+      "description": "以已同步的时间点汇总。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"step_count_count\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"step_count_count\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> timedMovingAverage(every: 1d, period: 7d)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "none"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "每日步数"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3b82f6"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 60
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "7 日均线"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f5a524"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 7,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "每日步行与跑步距离",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"walking_running_distance_km\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: km",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#4ade80"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 8,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "平均步行速度",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"walking_speed_km/hr\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: km/h",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3b82f6"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 9,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "平均步幅",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"walking_step_length_cm\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: cm",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#22c3b5"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 10,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "type": "row",
+      "title": "心率",
+      "id": 11,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "训练心率",
+      "description": "从训练记录随附的心率样本计算，按图表时间间隔取均值。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"heart_rate_data_bpm\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false, timeSrc: \"_stop\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: bpm",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#ff5d73"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 12,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 16,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "训练后心率",
+      "description": "训练记录随附的恢复期心率样本，取各时间窗口的均值。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"heart_rate_recovery_bpm\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false, timeSrc: \"_stop\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: bpm",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#22c3b5"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 13,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "type": "heatmap",
+      "title": "训练心率热力图",
+      "description": "横轴为日期，纵轴为当地小时，颜色表示该小时内已记录的平均心率。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\nimport \"date\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"heart_rate_data_bpm\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> map(fn: (r) => ({\n    _time: date.truncate(t: r._time, unit: 1d),\n    _value: r._value,\n    _field: if date.hour(t: r._time) < 10 then \"0\" + string(v: date.hour(t: r._time)) else string(v: date.hour(t: r._time)),\n  }))\n  |> group(columns: [\"_field\"])\n  |> sort(columns: [\"_time\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: bpm"
+        },
+        "overrides": []
+      },
+      "options": {
+        "calculate": false,
+        "rowsFrame": {
+          "layout": "unknown"
+        },
+        "cellGap": 0,
+        "yAxis": {
+          "axisPlacement": "left",
+          "reverse": false,
+          "axisLabel": "小时"
+        },
+        "color": {
+          "mode": "scheme",
+          "scheme": "Magma",
+          "steps": 64,
+          "exponent": 0.5,
+          "reverse": false
+        },
+        "legend": {
+          "show": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "yHistogram": false
+        },
+        "exemplars": {
+          "color": "transparent"
+        }
+      },
+      "id": 14,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 9
+      }
+    },
+    {
+      "type": "row",
+      "title": "训练",
+      "id": 15,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "每周训练时长 · 按类型",
+      "description": "每周从星期一开始。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\" and r._field == \"duration_min\")\n  |> group(columns: [\"workout_name\"])\n  |> aggregateWindow(every: 1w, offset: -3d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\", \"workout_name\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: min",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 92,
+            "lineWidth": 0,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "none"
+          },
+          "displayName": "${__field.labels.workout_name}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "_time": 0,
+              "deep": 1,
+              "core": 2,
+              "rem": 3,
+              "awake": 4
+            }
+          }
+        }
+      ],
+      "id": 16,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "每日训练活动能量",
+      "description": "按训练记录中的活动能量汇总，换算为 kcal。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\" and r._field == \"activeEnergy_kJ\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])\n  |> map(fn: (r) => ({r with _value: float(v: r._value) / 4.184}))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: kcal",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "none"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#ff5d73"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 17,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 18,
       "title": "训练记录",
-      "description": "按开始时间展示已同步训练的时长、距离和心率。",
       "type": "table",
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 49,
         "w": 24,
-        "h": 9
+        "h": 10
       },
       "datasource": {
         "type": "influxdb",
@@ -273,7 +930,7 @@
             "type": "influxdb",
             "uid": "apple-health-influxdb"
           },
-          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\")\n  |> filter(fn: (r) => contains(value: r._field, set: [\"duration_min\", \"distance_km\", \"avgHeartRate_bpm\", \"maxHeartRate_bpm\"]))\n  |> toFloat()\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> rename(fn: (column) =>\n    if column == \"_time\" then \"训练开始时间\"\n    else if column == \"duration_min\" then \"时长 (min)\"\n    else if column == \"distance_km\" then \"距离 (km)\"\n    else if column == \"avgHeartRate_bpm\" then \"平均心率 (bpm)\"\n    else if column == \"maxHeartRate_bpm\" then \"最高心率 (bpm)\"\n    else column)\n  |> sort(columns: [\"训练开始时间\"], desc: true)"
+          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\")\n  |> filter(fn: (r) => contains(value: r._field, set: [\"duration_min\", \"distance_km\", \"avgHeartRate_bpm\", \"maxHeartRate_bpm\"]))\n  |> toFloat()\n  |> keep(columns: [\"_time\", \"_field\", \"_value\", \"workout_name\"])\n  |> group()\n  |> pivot(rowKey: [\"_time\", \"workout_name\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> rename(fn: (column) =>\n    if column == \"_time\" then \"训练开始时间\"\n    else if column == \"workout_name\" then \"类型\"\n    else if column == \"duration_min\" then \"时长 (min)\"\n    else if column == \"distance_km\" then \"距离 (km)\"\n    else if column == \"avgHeartRate_bpm\" then \"平均心率 (bpm)\"\n    else if column == \"maxHeartRate_bpm\" then \"最高心率 (bpm)\"\n    else column)\n  |> sort(columns: [\"训练开始时间\"], desc: true)"
         }
       ],
       "fieldConfig": {
@@ -288,6 +945,82 @@
             "desc": true
           }
         ]
+      }
+    },
+    {
+      "type": "row",
+      "title": "听力",
+      "id": 19,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "每日平均耳机音量",
+      "description": "对已同步的耳机音量样本取均值。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"headphone_audio_exposure_dBASPL\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: mean, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: dBA",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 18,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "pointSize": 6,
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "barAlignment": 0,
+            "axisBorderShow": false,
+            "gradientMode": "opacity"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#7c5cff"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 20,
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 60,
+        "w": 24,
+        "h": 7
       }
     }
   ]
