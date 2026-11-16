@@ -364,6 +364,9 @@ systemctl start cloudlab-backup.service
             command(["git", "checkout", "main"], cwd=self.repo)
 
     def finish_activation(self):
+        command(["git", "fetch", "origin", "main"], cwd=self.repo)
+        command(["git", "checkout", "main"], cwd=self.repo)
+        command(["git", "merge", "--ff-only", "origin/main"], cwd=self.repo)
         recovery_branch = self.state.get("recovery_branch", "main")
         self.handover_branch(recovery_branch)
         self.ssh('''set -e
