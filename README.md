@@ -1,5 +1,5 @@
 # Jam CloudLab
-Reusable single-node GitOps scaffold on an existing Tencent Cloud CVM, with a dedicated COS backup bucket. The Flux source is the private `fullstackjam/cloudlab` repository on `main`.
+Reusable single-node GitOps scaffold on an existing Tencent Cloud CVM, with a dedicated COS backup bucket. Choose the GitHub source repository when bootstrapping Flux.
 
 The reference deployment uses one Ubuntu 24.04 node with a separate ext4 data disk mounted at `/data`. Keep host addresses, OpenTofu state, plaintext credentials, and the age private key outside Git. Flux reads the SOPS ciphertext and age public recipient from the same source repository.
 
@@ -11,7 +11,7 @@ Repository:
 - `infra/cloud-init.yaml`: fresh-node base tools and manually gated k3s install. Never apply to this running machine.
 - `clusters/cloudlab/`: staged Flux reconciliation, CRDs before infrastructure before apps.
 - `platform/`, `apps/`: HelmReleases and plain Kubernetes manifests; versions pinned as a reviewable starting point.
-- `secrets/`: inert example and empty Kustomization until real SOPS encryption; [.sops.yaml](.sops.yaml) needs a NEW public recipient.
+- `secrets/`: example Secret definitions and SOPS ciphertext for the reference deployment. For your own deployment, configure your age public recipient in [.sops.yaml](.sops.yaml) and encrypt your own credentials.
 - `scripts/`: bootstrap, local Git compatibility alias, validations and sanitized application backup/restore tools.
 
 ## Local Git and validation
@@ -34,3 +34,7 @@ Recover 1Password first (age identity, Git access, COS key, restic password, Ter
 Upgrade one pinned component per PR/change; check chart migration notes and Gateway API compatibility, run backups and isolated restore, inspect manifests/plan, then reconcile during a maintenance window. Do not auto-upgrade the node through this initial scaffold. Flux prune deletes removed resources; local-path data is not replicated and default reclaim policy may delete data when PVCs are removed. Protect PVCs during uninstall/migration and verify backups first.
 
 References checked: [Tencent instance/import schema](https://registry.terraform.io/providers/tencentcloudstack/tencentcloud/latest/docs/resources/instance), [COS bucket](https://registry.terraform.io/providers/tencentcloudstack/tencentcloud/latest/docs/resources/cos_bucket), [Cloudflare Tunnel Terraform](https://developers.cloudflare.com/tunnel/guides/terraform/), [Traefik Gateway API](https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/gateway-api/). Network downloads and static validation now work. Validation status is in SUMMARY.md; do not equate YAML parsing with a successful deployment.
+
+## License
+
+[Apache-2.0](LICENSE)
