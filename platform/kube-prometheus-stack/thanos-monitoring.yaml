@@ -1,0 +1,128 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: monitoring
+  namespace: apps
+spec:
+  values:
+    prometheus:
+      additionalPodMonitors:
+      - name: thanos
+        jobLabel: app
+        namespaceSelector:
+          matchNames:
+          - apps
+        selector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - thanos-query
+            - thanos-store
+            - thanos-compactor
+        podMetricsEndpoints:
+        - port: http
+          interval: 30s
+    additionalPrometheusRulesMap:
+      cloudlab-thanos:
+        groups:
+        - name: cloudlab.thanos
+          rules:
+          - alert: ThanosComponentUnavailable
+            expr: |
+              up{namespace="apps",job=~"thanos-(sidecar|query|store|compactor)"} == 0
+              or absent(up{namespace="apps",job="thanos-sidecar"})
+              or absent(up{namespace="apps",job="thanos-query"})
+              or absent(up{namespace="apps",job="thanos-store"})
+              or absent(up{namespace="apps",job="thanos-compactor"})
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Thanos component cannot be scraped
+              description: '{{ $labels.job }} has been down or missing from discovery for five minutes.'
+          - alert: ThanosSidecarPrometheusUnavailable
+            expr: thanos_sidecar_prometheus_up{namespace="apps",job="thanos-sidecar"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Thanos Sidecar cannot reach Prometheus
+          - alert: ThanosSidecarUploadFailed
+            expr: increase(thanos_shipper_upload_failures_total{namespace="apps",job="thanos-sidecar"}[15m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Thanos Sidecar failed to upload a block
+          - alert: ThanosSidecarUploadStalled
+            expr: |
+              (time() - thanos_objstore_bucket_last_successful_upload_time{namespace="apps",job="thanos-sidecar"} > 3 * 60 * 60)
+              and on (namespace, job, instance)
+              (time() - process_start_time_seconds{namespace="apps",job="thanos-sidecar"} > 3 * 60 * 60)
+            for: 15m
+            labels:
+              severity: critical
+            annotations:
+              summary: Thanos Sidecar has not uploaded a block for over three hours
+          - alert: ThanosObjectStorageErrors
+            expr: |
+              sum by (namespace, job) (
+                increase(thanos_objstore_bucket_operation_failures_total{namespace="apps",job=~"thanos-(sidecar|store|compactor)"}[5m])
+              ) > 0
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: Thanos COS operations keep failing
+              description: '{{ $labels.job }} has reported object storage errors for ten minutes.'
+          - alert: ThanosCompactorHalted
+            expr: thanos_compact_halted{namespace="apps",job="thanos-compactor"} == 1
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Thanos Compactor has halted
+          - alert: ThanosCompactorFailures
+            expr: |
+              sum by (namespace, job) (increase(thanos_compact_group_compactions_failures_total{namespace="apps",job="thanos-compactor"}[15m])) > 0
+              or sum by (namespace, job) (increase(thanos_compact_downsample_failures_total{namespace="apps",job="thanos-compactor"}[15m])) > 0
+              or sum by (namespace, job) (increase(thanos_compact_garbage_collection_failures_total{namespace="apps",job="thanos-compactor"}[15m])) > 0
+              or sum by (namespace, job) (increase(thanos_compact_block_cleanup_failures_total{namespace="apps",job="thanos-compactor"}[15m])) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Thanos compaction, downsampling or cleanup failed
+          - alert: ThanosCompactorStalled
+            expr: |
+              (increase(thanos_compact_iterations_total{namespace="apps",job="thanos-compactor"}[1h]) == 0)
+              and on (namespace, job, instance)
+              (time() - process_start_time_seconds{namespace="apps",job="thanos-compactor"} > 60 * 60)
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: Thanos Compactor has not completed an iteration for over an hour
+          - alert: ThanosStoreSyncFailures
+            expr: |
+              increase(thanos_blocks_meta_sync_failures_total{namespace="apps",job=~"thanos-(store|compactor)"}[15m]) > 0
+              or increase(thanos_bucket_store_block_load_failures_total{namespace="apps",job="thanos-store"}[15m]) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Thanos failed to synchronize or load COS blocks
+          - alert: ThanosQueryStoreUnavailable
+            expr: |
+              sum by (namespace, job, store_type) (
+                thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type=~"sidecar|store"}
+              ) < 1
+              or absent(thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type="sidecar"})
+              or absent(thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type="store"})
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Thanos Query lost a required storage connection
+              description: No healthy {{ $labels.store_type }} connection is available.

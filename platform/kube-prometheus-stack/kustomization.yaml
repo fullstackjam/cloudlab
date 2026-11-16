@@ -7,3 +7,5 @@ resources:
 - grafana-health-auto-export-datasource.sops.yaml
 - source.yaml
 - route.yaml
+patches:
+- path: thanos-monitoring.yaml

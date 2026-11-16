@@ -49,6 +49,9 @@ spec:
         kubeProxy: false
         kubeSchedulerAlerting: false
     grafana:
+      deleteDatasources:
+      - name: Thanos
+        orgId: 1
       plugins:
       - yesoreyeram-infinity-datasource@4.1.6
       dashboardProviders:
@@ -87,6 +90,12 @@ spec:
     prometheus:
       thanosService:
         enabled: true
+      thanosServiceMonitor:
+        enabled: true
+        interval: 30s
+        relabelings:
+        - targetLabel: job
+          replacement: thanos-sidecar
       prometheusSpec:
         retention: 3d
         retentionSize: 8GB

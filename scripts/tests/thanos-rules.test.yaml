@@ -1,0 +1,267 @@
+rule_files:
+- thanos-rules.yaml
+evaluation_interval: 1m
+tests:
+- name: Healthy components do not alert, including initial startup
+  interval: 1m
+  input_series:
+  - series: up{namespace="apps",job="thanos-query"}
+    values: 1+0x240
+  - series: up{namespace="apps",job="thanos-store"}
+    values: 1+0x240
+  - series: up{namespace="apps",job="thanos-sidecar"}
+    values: 1+0x240
+  - series: up{namespace="apps",job="thanos-compactor"}
+    values: 1+0x240
+  - series: thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type="sidecar"}
+    values: 1+0x240
+  - series: thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type="store"}
+    values: 1+0x240
+  - series: thanos_sidecar_prometheus_up{namespace="apps",job="thanos-sidecar"}
+    values: 1+0x240
+  - series: thanos_shipper_upload_failures_total{namespace="apps",job="thanos-sidecar"}
+    values: 0+0x240
+  - series: thanos_objstore_bucket_last_successful_upload_time{namespace="apps",job="thanos-sidecar"}
+    values: 0+60x240
+  - series: process_start_time_seconds{namespace="apps",job="thanos-sidecar"}
+    values: 0+0x240
+  - series: thanos_compact_halted{namespace="apps",job="thanos-compactor"}
+    values: 0+0x240
+  - series: thanos_compact_iterations_total{namespace="apps",job="thanos-compactor"}
+    values: 0+1x240
+  - series: process_start_time_seconds{namespace="apps",job="thanos-compactor"}
+    values: 0+0x240
+  - series: thanos_blocks_meta_sync_failures_total{namespace="apps",job="thanos-store"}
+    values: 0+0x240
+  - series: thanos_bucket_store_block_load_failures_total{namespace="apps",job="thanos-store"}
+    values: 0+0x240
+  - series: thanos_compact_group_compactions_failures_total{namespace="apps",job="thanos-compactor"}
+    values: 0+0x240
+  - series: thanos_compact_downsample_failures_total{namespace="apps",job="thanos-compactor"}
+    values: 0+0x240
+  - series: thanos_objstore_bucket_operation_failures_total{namespace="apps",job="thanos-store",operation="get"}
+    values: 0+0x240
+  - series: thanos_objstore_bucket_operation_failures_total{namespace="apps",job="thanos-sidecar",operation="get"}
+    values: 0+0x240
+  - series: thanos_objstore_bucket_operation_failures_total{namespace="apps",job="thanos-compactor",operation="get"}
+    values: 0+0x240
+  promql_expr_test:
+  - expr: count(ALERTS{alertstate="firing",alertname=~"Thanos.*"}) or vector(0)
+    eval_time: 15m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertstate="firing",alertname=~"Thanos.*"}) or vector(0)
+    eval_time: 3h30m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: Failed scrapes and missing targets fire after five minutes, then resolve
+  interval: 1m
+  input_series:
+  - series: up{namespace="apps",job="thanos-query"}
+    values: 0+0x6 1+0x8
+  - series: up{namespace="apps",job="thanos-store"}
+    values: _ _ _ _ _ _ _ 1+0x7
+  - series: up{namespace="apps",job="thanos-sidecar"}
+    values: 1+0x15
+  - series: up{namespace="apps",job="thanos-compactor"}
+    values: 1+0x15
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosComponentUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosComponentUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 6m
+    exp_samples:
+    - labels: '{}'
+      value: 2
+  - expr: count(ALERTS{alertname="ThanosComponentUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 8m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: Disconnected and absent StoreAPI types both alert
+  interval: 1m
+  input_series:
+  - series: thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type="sidecar"}
+    values: 0+0x6 1+0x8
+  - series: thanos_store_nodes_grpc_connections{namespace="apps",job="thanos-query",store_type="store"}
+    values: _ _ _ _ _ _ _ 1+0x7
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosQueryStoreUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosQueryStoreUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 6m
+    exp_samples:
+    - labels: '{}'
+      value: 2
+  - expr: count(ALERTS{alertname="ThanosQueryStoreUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 8m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: Uploader gets three hours after startup before a stalled-upload alert
+  interval: 1m
+  input_series:
+  - series: thanos_objstore_bucket_last_successful_upload_time{namespace="apps",job="thanos-sidecar"}
+    values: 0+0x200
+  - series: process_start_time_seconds{namespace="apps",job="thanos-sidecar"}
+    values: 0+0x200
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosSidecarUploadStalled",alertstate="firing"}) or vector(0)
+    eval_time: 15m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosSidecarUploadStalled",alertstate="firing"}) or vector(0)
+    eval_time: 3h
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosSidecarUploadStalled",alertstate="firing"}) or vector(0)
+    eval_time: 3h16m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: Recent upload and restarted Sidecar do not trigger stalled-upload alerts
+  interval: 1m
+  input_series:
+  - series: thanos_objstore_bucket_last_successful_upload_time{namespace="apps",job="thanos-sidecar",instance="uploading"}
+    values: 0+60x30
+  - series: process_start_time_seconds{namespace="apps",job="thanos-sidecar",instance="uploading"}
+    values: -14400+0x30
+  - series: thanos_objstore_bucket_last_successful_upload_time{namespace="apps",job="thanos-sidecar",instance="restarted"}
+    values: 0+0x30
+  - series: process_start_time_seconds{namespace="apps",job="thanos-sidecar",instance="restarted"}
+    values: 0+0x30
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosSidecarUploadStalled",alertstate="firing"}) or vector(0)
+    eval_time: 20m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: Prometheus connection, upload, downsampling and block sync failures are detected
+  interval: 1m
+  input_series:
+  - series: thanos_sidecar_prometheus_up{namespace="apps",job="thanos-sidecar"}
+    values: 0+0x30
+  - series: thanos_shipper_upload_failures_total{namespace="apps",job="thanos-sidecar"}
+    values: 0+1x30
+  - series: thanos_compact_halted{namespace="apps",job="thanos-compactor"}
+    values: 1+0x30
+  - series: thanos_compact_downsample_failures_total{namespace="apps",job="thanos-compactor"}
+    values: 0+1x30
+  - series: thanos_blocks_meta_sync_failures_total{namespace="apps",job="thanos-store"}
+    values: 0+1x30
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosSidecarPrometheusUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosSidecarPrometheusUnavailable",alertstate="firing"}) or vector(0)
+    eval_time: 7m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ThanosSidecarUploadFailed",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosSidecarUploadFailed",alertstate="firing"}) or vector(0)
+    eval_time: 7m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ThanosCompactorHalted",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosCompactorHalted",alertstate="firing"}) or vector(0)
+    eval_time: 7m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ThanosCompactorFailures",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosCompactorFailures",alertstate="firing"}) or vector(0)
+    eval_time: 7m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ThanosStoreSyncFailures",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosStoreSyncFailures",alertstate="firing"}) or vector(0)
+    eval_time: 7m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: Compactor startup allowance and stalled iteration detection
+  interval: 1m
+  input_series:
+  - series: thanos_compact_iterations_total{namespace="apps",job="thanos-compactor"}
+    values: 0+0x100
+  - series: process_start_time_seconds{namespace="apps",job="thanos-compactor"}
+    values: 0+0x100
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosCompactorStalled",alertstate="firing"}) or vector(0)
+    eval_time: 15m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosCompactorStalled",alertstate="firing"}) or vector(0)
+    eval_time: 1h
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosCompactorStalled",alertstate="firing"}) or vector(0)
+    eval_time: 1h16m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: Transient COS errors clear before the ten-minute threshold
+  interval: 1m
+  input_series:
+  - series: thanos_objstore_bucket_operation_failures_total{namespace="apps",job="thanos-store",operation="get"}
+    values: 0 1+0x30
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosObjectStorageErrors",alertstate="firing"}) or vector(0)
+    eval_time: 15m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: Sustained COS errors fire and resolve after recovery
+  interval: 1m
+  input_series:
+  - series: thanos_objstore_bucket_operation_failures_total{namespace="apps",job="thanos-store",operation="get"}
+    values: 0+1x15 15+0x15
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="ThanosObjectStorageErrors",alertstate="firing"}) or vector(0)
+    eval_time: 9m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="ThanosObjectStorageErrors",alertstate="firing"}) or vector(0)
+    eval_time: 12m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="ThanosObjectStorageErrors",alertstate="firing"}) or vector(0)
+    eval_time: 25m
+    exp_samples:
+    - labels: '{}'
+      value: 0

@@ -21,6 +21,7 @@ spec:
         - query
         - --http-address=0.0.0.0:10902
         - --query.replica-label=prometheus_replica
+        - --query.auto-downsampling
         - --endpoint=monitoring-kube-prometheus-thanos-discovery.apps.svc.cluster.local:10901
         - --endpoint=thanos-store.apps.svc.cluster.local:10901
         ports:

@@ -58,9 +58,9 @@ Flux 按 `gateway-crds → platform → apps` 同步。Gateway API CRD 必须先
 ./scripts/validate.sh
 ```
 
-[Validate CI](.github/workflows/validate.yml) 在 PR 和 `main` push 时运行凭据扫描及同一验证入口。该入口检查 shell/YAML、引用和 SOPS 文件规则，校验 OpenTofu，渲染全部 Kustomize 入口与 Helm chart，按对应 CRD schema 校验资源，并运行 Kuma 导出测试。
+[Validate CI](.github/workflows/validate.yml) 在 PR 和 `main` push 时运行凭据扫描及同一验证入口。该入口检查 shell/YAML、引用和 SOPS 文件规则，校验 OpenTofu，渲染全部 Kustomize 入口与 Helm chart，按对应 CRD schema 校验资源，并运行 Kuma 导出及 Thanos 告警规则测试。
 
-工具版本为 OpenTofu 1.13.9、Kustomize 5.8.3、Helm 3.19.2、Flux 2.9.6、kubeconform 0.8.0、Python 3 和 PyYAML。凭据操作使用 SOPS 3.13.3、age 1.3.2。安装方式和校验和验证见 CI workflow。验证需要联网下载 provider、chart 和 schema。
+工具版本为 OpenTofu 1.13.9、Kustomize 5.8.3、Helm 3.19.2、Flux 2.9.6、kubeconform 0.8.0、promtool 3.16.0、Python 3 和 PyYAML。凭据操作使用 SOPS 3.13.3、age 1.3.2。安装方式和校验和验证见 CI workflow。验证需要联网下载 provider、chart 和 schema。
 
 目录调整还应比较调整前后的渲染对象及 Flux 归属。静态验证通过后，涉及部署行为的改动继续验收实际服务。协作约定见 [AGENTS.md](AGENTS.md)。
 

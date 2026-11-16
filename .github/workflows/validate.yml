@@ -60,6 +60,8 @@ jobs:
             kubeconform-linux-amd64.tar.gz CHECKSUMS kubeconform kubeconform
           download https://github.com/gitleaks/gitleaks/releases/download/v8.30.1 \
             gitleaks_8.30.1_linux_x64.tar.gz gitleaks_8.30.1_checksums.txt gitleaks gitleaks
+          download https://github.com/prometheus/prometheus/releases/download/v3.16.0 \
+            prometheus-3.16.0.linux-amd64.tar.gz sha256sums.txt prometheus-3.16.0.linux-amd64/promtool promtool
 
           python3 -m pip install --disable-pip-version-check PyYAML==6.0.2
           printf '%s\n' "$tools_dir/bin" >> "$GITHUB_PATH"
