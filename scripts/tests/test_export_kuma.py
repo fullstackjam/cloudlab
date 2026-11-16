@@ -29,9 +29,11 @@ class KumaExportTest(unittest.TestCase):
                     INSERT INTO knex_migrations_lock VALUES (1, 0);
                     CREATE TABLE monitor (
                         id INTEGER PRIMARY KEY, name TEXT, url TEXT, password TEXT,
+                        user_id INTEGER, kafkaProducerBrokers TEXT DEFAULT '[]',
+                        conditions TEXT DEFAULT '[]', parent INTEGER,
                         snmp_version TEXT CHECK (snmp_version IN ('1', '2c', '3'))
                     );
-                    INSERT INTO monitor VALUES (1, 'test', 'https://name:demo@example.org/status?check=demo', ' fixture ', '2c');
+                    INSERT INTO monitor VALUES (1, 'test', 'https://name:demo@example.org/status?check=demo', ' fixture ', 7, '["private"]', '[]', NULL, '2c');
                 """)
             subprocess.run(
                 [
@@ -63,5 +65,9 @@ class KumaExportTest(unittest.TestCase):
                     db.execute(
                         "SELECT name, url, password, snmp_version FROM monitor"
                     ).fetchone(),
-                    ("test", "https://example.org/status", "", "2c"),
+                    ("test", "https://example.org/status", None, "2c"),
+                )
+                self.assertEqual(
+                    db.execute("SELECT user_id, kafkaProducerBrokers, conditions, parent FROM monitor").fetchone(),
+                    (None, "[]", "[]", None),
                 )

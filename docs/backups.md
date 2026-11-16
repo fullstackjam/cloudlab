@@ -84,21 +84,40 @@ influx write --host "$DRILL_INFLUX_URL" --bucket apple-health --org cloudlab \
 
 `RESTORED_CSV` points to the restored `apple-health.csv`, `RESTORED_LINE_PROTOCOL` is the converted file, and `DRILL_INFLUX_URL` is the isolated instance's URL. Do not pass query CSV directly to `influx write`. Check measurement counts, time ranges, field types, and sample values. See [Influx query CSV](https://docs.influxdata.com/influxdb/v2/query-data/execute-queries/influx-cli/) for the export format.
 
+The CSV does not restore InfluxDB authorizations. Create a new token with write access to the restored `apple-health` bucket, update `influx-write-token` in `apps/apple-health-influxdb/credentials.sops.yaml`, and deploy it before accepting uploads. Keep the receiver's `auth-token` unchanged so the iPhone can keep using its existing credentials. Keep plaintext tokens out of terminal output and Git.
+
 ### Uptime Kuma
 
 Stop Kuma in the isolated environment, place `kuma.db` in its `/app/data` volume, and allow the container user to read and write it. Then start the service. Recreate the administrator and recover monitor credentials and notification settings from the vault. Do not include WAL files from an old database. Check monitor counts, configuration, and history.
 
+After creating the administrator, stop Kuma again and assign the restored monitors to that account. The export removes user ownership along with users; Kuma's setup does not reassign it. Set `KUMA_DATABASE` to the restored volume's `kuma.db` path and `KUMA_USERNAME` to the administrator's username:
+
+```bash
+python3 - "$KUMA_DATABASE" "$KUMA_USERNAME" <<'PY'
+import sqlite3, sys
+with sqlite3.connect(sys.argv[1]) as db:
+    users = db.execute('SELECT id FROM user WHERE username=?', (sys.argv[2],)).fetchall()
+    if len(users) != 1:
+        raise SystemExit('Create the administrator first')
+    db.execute('UPDATE monitor SET user_id=? WHERE user_id IS NULL OR user_id=0', users[0])
+PY
+```
+
+Restart Kuma and verify the monitor list through an authenticated session. An HTTP 200 response or a running Pod does not prove that the restored monitors are usable. If Flux manages the Deployment, suspend its reconciliation while stopping and restoring Kuma, then resume it after verification.
+
 ### MongoDB
 
-Use an isolated MongoDB 8.0 instance and compatible Database Tools. Restore through the loopback address inside the Pod. The command below assumes authentication is not yet enabled on the isolated instance:
+Use the MongoDB 8.0 deployment from Git and compatible Database Tools. Its init script creates the application user from the deployment Secret. Restore through the loopback address inside the Pod; pass the password through an anonymous pipe:
 
 ```bash
 kubectl --context "$CLOUDLAB_KUBE_CONTEXT" -n "$DRILL_NAMESPACE" exec -i "$DRILL_POD" -- \
-  mongorestore --host 127.0.0.1 --archive --gzip --stopOnError \
-  --nsInclude='health-auto-export.*' < "$RESTORED_ARCHIVE"
+  bash -ec 'mongorestore --host 127.0.0.1 --username health-auto-export \
+    --authenticationDatabase admin \
+    --config=<(printf "password: %s\n" "$MONGO_APP_PASSWORD") \
+    --archive --gzip --stopOnError --nsInclude="health-auto-export.*"' < "$RESTORED_ARCHIVE"
 ```
 
-`RESTORED_ARCHIVE` points to the restored `health-auto-export.archive.gz`. Check mongorestore's success and failure counts, document counts for each collection, indexes, and samples of metrics, workouts, and routes. Use the deployment Secret to recreate authentication settings.
+`RESTORED_ARCHIVE` points to the restored `health-auto-export.archive.gz`. Check mongorestore's success and failure counts, document counts for each collection, indexes, and samples of metrics, workouts, and routes. Stop Health Auto Export while restoring so it cannot write concurrently. The command expects a fresh application database; do not merge it into a populated database without deciding how to handle existing documents.
 
 Single-node MongoDB uses an online logical export. Writes across collections during the export may be captured at different points in time. After recovery, you can upload the affected dates again from the iPhone.
 

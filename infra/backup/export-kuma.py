@@ -64,16 +64,20 @@ for (table,) in b.execute(
             "url",
             "description",
             "snmp_version",
+            "parent",
+            "timeout",
+            "maxredirects",
         }
         for col in b.execute("PRAGMA table_info(" + quoted + ")").fetchall():
             name = col[1]
             if name not in allowed:
-                # Respect NOT NULL constraints; empty value carries no credentials.
-                value = 0 if "INT" in col[2].upper() else ""
-                b.execute(
-                    "UPDATE " + quoted + ' SET "' + name.replace('"', '""') + '"=?',
-                    (value,),
-                )
+                column = '"' + name.replace('"', '""') + '"'
+                # Use schema defaults so JSON fields and optional references stay valid.
+                if col[4] is not None:
+                    b.execute("UPDATE " + quoted + " SET " + column + "=" + col[4])
+                else:
+                    value = None if not col[3] else (0 if "INT" in col[2].upper() else "")
+                    b.execute("UPDATE " + quoted + " SET " + column + "=?", (value,))
         for ident, url in b.execute("SELECT id,url FROM monitor").fetchall():
             if url:
                 u = urllib.parse.urlsplit(url)

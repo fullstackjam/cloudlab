@@ -84,6 +84,7 @@ node_name=$(hostname -s | tr '[:upper:]' '[:lower:]')
 sudo k3s kubectl wait --for=create "node/$node_name" --timeout=120s
 sudo k3s kubectl wait --for=condition=Ready "node/$node_name" --timeout=300s
 sudo k3s kubectl get nodes -o wide
+sudo k3s kubectl wait --for=create storageclass/local-path --timeout=120s
 sudo k3s kubectl get storageclass local-path
 ```
 
@@ -131,6 +132,8 @@ GITHUB_REPOSITORY=fullstackjam/cloudlab SOPS_AGE_KEY_FILE="$PWD/.local/age.ageke
 ```
 
 Replace `GITHUB_REPOSITORY` with the target repository's `OWNER/REPO`. A checkout with a GitHub `origin` also accepts just the repository name; the script reads the owner from `origin`. Set `GITHUB_PERSONAL=false` for an organization repository.
+
+`GITHUB_BRANCH` defaults to `main`. For a recovery drill on another branch, update the GitRepository URL and branch in `infra/flux/flux-system/gotk-sync.yaml`, commit all isolation settings, and push that branch **before** running bootstrap. Pass the same branch through `GITHUB_BRANCH`. The script rejects a source mismatch before changing the cluster. An existing sync manifest can otherwise redirect the first reconciliation to the original branch, starting production connectors or writers on the recovery node.
 
 The script first checks locally that the three base Secrets (Tunnel, Grafana, and InfluxDB) can be decrypted. It then creates namespaces and `flux-system/sops-age`, installs Flux, registers a deploy key, and commits the generated `gotk-components.yaml` and `gotk-sync.yaml` to GitHub. Later syncs use the deploy key stored in the cluster. If that key becomes invalid after the GitHub PAT expires or is revoked, follow the official [deploy key rotation procedure](https://fluxcd.io/flux/installation/bootstrap/github/#deploy-key-rotation).
 
