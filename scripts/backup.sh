@@ -13,7 +13,9 @@ cleanup() { rm -rf "$stage"; }
 trap cleanup EXIT
 # Data-only export: no Influx users, tokens, config or Git.
 pod=$(kubectl -n apps get pods -l app=influxdb -o jsonpath='{.items[0].metadata.name}')
-kubectl -n apps exec "$pod" -- sh -ec 'influx query --raw --org cloudlab --host http://localhost:8086 --token "$DOCKER_INFLUXDB_INIT_ADMIN_TOKEN" '\''from(bucket:"apple-health") |> range(start: 1970-01-01T00:00:00Z)'\''' > "$stage/apple-health.csv"
+kubectl -n apps exec "$pod" -- sh -ec '
+  INFLUX_TOKEN="$DOCKER_INFLUXDB_INIT_ADMIN_TOKEN" exec influx query --raw --org cloudlab --host http://localhost:8086 "$1"
+' -- 'from(bucket:"apple-health") |> range(start: 1970-01-01T00:00:00Z)' > "$stage/apple-health.csv"
 claim=$(kubectl -n apps get pvc uptime-kuma -o jsonpath='{.spec.volumeName}')
 path=$(kubectl get pv "$claim" -o jsonpath='{.spec.local.path}{.spec.hostPath.path}')
 [[ $path == /data/k3s/storage/* ]] || { echo 'Unexpected PV path'; exit 1; }
