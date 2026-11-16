@@ -6,7 +6,7 @@ A restore reuses the existing repository, age identity, COS bucket, Tunnel, doma
 
 ## Gather the inputs
 
-An agent should find these values from the supplied machine, the cloud API, the repository, and the credential vault. Ask for information only when the target or a credential cannot be identified uniquely.
+Read the deployment inventory in the credential vault first; the reference deployment uses a note named `CloudLab Deployment`. It records resource IDs, the backup location, and credential references. Verify those records against the supplied machine and cloud API. Ask for information only when the target or a credential cannot be identified uniquely.
 
 | Input | How to identify it |
 | --- | --- |
@@ -106,6 +106,8 @@ If activation has already published the target configuration to `main`, rerunnin
 ## Finish the handover
 
 Report the restored snapshot, Flux revision, data checks, public whoami identity, notification event, and successful backup job. Wait for the `main` CI run to pass. Explicitly name any check that could not be completed.
+
+Update the deployment inventory with the active node, retained disks, backup location, and active deploy key, then read it back. Keep deployment-specific values and credential references outside Git.
 
 The script deletes its temporary branch after successful activation. Keep its active Flux deploy key: the cluster still uses that key when watching `main`. Delete a retired node's deploy key only after confirming it is no longer in use. Remove private recovery files and SSH forwarding processes when they are no longer needed.
 
