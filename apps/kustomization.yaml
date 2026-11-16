@@ -7,4 +7,3 @@ resources:
 - homepage
 - apple-health-influxdb
 - health-auto-export
-- ../platform/monitoring/routes

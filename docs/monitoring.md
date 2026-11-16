@@ -19,3 +19,5 @@ Prometheus 评估规则，并把告警交给集群内的 Alertmanager。Alertman
 自定义规则放在 `platform/monitoring/resources.yaml` 的 `additionalPrometheusRulesMap` 下，由 Helm 创建 `PrometheusRule`。例如，`CloudLabDataDiskUsageHigh` 在 `/data` 的 ext4 文件系统可用空间低于 20% 并持续 10 分钟时触发。Alertmanager 原生 webhook 的 `payload` 模板负责生成 ntfy 需要的 JSON。
 
 新环境用自己的 age 公钥重新加密 `platform/monitoring/secrets/alertmanager.sops.yaml`。它是 `apps/cloudlab-alertmanager` Secret，`alertmanager.yaml` 保存原生配置，其中 ntfy webhook 的 URL 为 `https://ntfy.sh`，`payload.topic` 为目标主题。部署后检查 Prometheus 的 `/api/v1/alertmanagers` 列出了 Alertmanager，再验证一条测试通知。
+
+Grafana 的 `route.yaml`、Helm 仓库 `source.yaml`、数据源密文和面板均由 monitoring 组件加载。面板 ConfigMap 设置 `kustomize.toolkit.fluxcd.io/substitute: disabled`，保留 Grafana 自身的变量表达式；路由继续使用共享域名替换。

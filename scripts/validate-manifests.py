@@ -26,12 +26,17 @@ with tempfile.TemporaryDirectory(prefix='cloudlab-validate-') as directory:
             continue
         name = str(source.parent.relative_to(ROOT))
         rendered = run('kustomize', 'build', str(source.parent))
-        if '${CLOUDLAB_DOMAIN}' in rendered:
-            settings = yaml.safe_load((ROOT / 'infra/flux/settings.yaml').read_text())['data']
-            rendered = subprocess.check_output(
-                ['flux', 'envsubst', '--strict'], input=rendered, text=True,
-                env={'PATH': os.environ['PATH'], **settings})
         resources = [obj for obj in yaml.safe_load_all(rendered) if obj]
+        settings = yaml.safe_load((ROOT / 'infra/flux/settings.yaml').read_text())['data']
+        for index, obj in enumerate(resources):
+            annotations = obj.get('metadata', {}).get('annotations', {})
+            serialized = yaml.safe_dump(obj)
+            if (annotations.get('kustomize.toolkit.fluxcd.io/substitute') != 'disabled'
+                    and '${CLOUDLAB_DOMAIN}' in serialized):
+                resources[index] = yaml.safe_load(subprocess.check_output(
+                    ['flux', 'envsubst', '--strict'], input=serialized, text=True,
+                    env={'PATH': os.environ['PATH'], **settings}))
+        rendered = yaml.safe_dump_all(resources)
         if any(obj.get('kind') == 'Secret' for obj in resources):
             for obj in resources:
                 if obj.get('kind') != 'Secret':
@@ -52,6 +57,9 @@ with tempfile.TemporaryDirectory(prefix='cloudlab-validate-') as directory:
         print(f'Kustomize: {name}', flush=True)
     # Export only: no kubeconfig, API server or cluster mutation.
     manifests['flux-controllers'] = run('flux', 'install', '--export')
+    # Component entry points also occur inside the platform/apps aggregate.
+    objects = list({(obj['apiVersion'], obj['kind'], obj['metadata'].get('namespace'),
+                     obj['metadata']['name']): obj for obj in objects}.values())
     repos = {obj['metadata']['name']: obj['spec']['url'] for obj in objects
              if obj and obj.get('kind') == 'HelmRepository'}
     for obj in objects:

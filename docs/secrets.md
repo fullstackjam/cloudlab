@@ -54,7 +54,7 @@ SOPS_AGE_KEY_FILE="$PWD/.local/age.agekey" sops decrypt \
 mv .local/credentials.sops.yaml "$credential_dir/credentials.sops.yaml"
 ```
 
-加密和解密校验通过后，删除 `.local/credentials.yaml`。每个服务的 `secrets/kustomization.yaml` 引用该服务的密文文件；[Flux 解密入口](../infra/flux/secrets/kustomization.yaml) 引用这些目录。新增服务时，将它的密文目录加入该入口，普通资源入口不要重复引用 Secret。
+加密和解密校验通过后，删除 `.local/credentials.yaml`。每个服务的 `secrets/kustomization.yaml` 引用密文文件，服务自己的 `kustomization.yaml` 加载 `secrets` 子目录。platform 和 apps 的 [Flux 同步入口](../infra/flux/reconcile.yaml) 均配置了 SOPS 解密。新增服务只需把完整组件加入所属层的资源列表，无需登记到额外的 Secret 同步入口。
 
 检查待提交内容只有公钥、密文和资源引用，再提交并推送到 `main`。公开仓库中的 Secret 名称和字段名可见，私钥留在凭据库和 Flux 的解密 Secret 中。 [Flux SOPS 指南](https://fluxcd.io/flux/guides/mozilla-sops/)
 

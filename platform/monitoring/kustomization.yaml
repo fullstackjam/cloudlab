@@ -2,6 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - resources.yaml
+- secrets
+- source.yaml
+- route.yaml
 configMapGenerator:
 - name: grafana-dashboard-apple-health
   namespace: apps
@@ -10,4 +13,6 @@ configMapGenerator:
   options:
     disableNameSuffixHash: true
     labels:
-      grafana_dashboard: "1"
+      grafana_dashboard: '1'
+    annotations:
+      kustomize.toolkit.fluxcd.io/substitute: disabled

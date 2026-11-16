@@ -32,14 +32,14 @@ flowchart LR
 | 目录 | 职责 |
 | --- | --- |
 | [infra/](infra/) | 云资源与集群引导。根下是 OpenTofu，`bootstrap.sh` 安装 Flux；`flux/` 声明同步入口、依赖和共享设置；`backup/` 放主机备份、恢复脚本及 systemd 定时任务 |
-| [platform/](platform/) | 集群公共组件。`traefik/`、`cloudflared/`、`monitoring/`、`thanos/` 各自保存清单和所需密文；`sources/` 与 `gateway-crds/` 提供前置依赖 |
+| [platform/](platform/) | 集群公共组件。`traefik/`、`cloudflared/`、`monitoring/`、`thanos/` 各自保存清单和所需密文；Gateway API CRD 位于 `traefik/crds/` |
 | [apps/](apps/) | 应用服务。每个服务独立一个目录，包含工作负载、Service、PVC、配置、HTTPRoute 和所需密文；Health Auto Export 的 MongoDB 放在该应用目录内 |
 | [scripts/](scripts/) | 仓库校验工具与 `tests/` 回归用例 |
 | [docs/](docs/) | 部署、凭据、DNS、监控、Apple Health 和恢复操作指南 |
 
-组件与应用目录中的 `resources.yaml` 保存普通资源，`secrets/` 保存 SOPS 密文和凭据示例。Grafana 的面板、数据源凭据与入口集中在 `platform/monitoring/`。
+组件与应用目录中的 `source.yaml` 定义所需 Helm 仓库，`resources.yaml` 保存普通资源，`secrets/` 保存 SOPS 密文和凭据示例；目录自己的 `kustomization.yaml` 聚合这些资源。Grafana 的面板、数据源凭据与入口集中在 `platform/monitoring/`。
 
-目录表示配置归属，Flux Kustomization 表示部署顺序。`infra/flux/secrets/kustomization.yaml` 只引用各服务的密文目录，统一解密后再部署组件和应用。Grafana 入口仍由 apps Kustomization 加载，共用域名替换。Flux 对象名 `infra` 对应 `platform/`。
+Flux 按 `gateway-crds → platform → apps` 同步。Gateway API CRD 必须先于 Traefik 和 HTTPRoute 创建；platform 就绪后部署应用。platform 和 apps 各自解密所管理的 Secret，并从共享设置读取域名。Grafana 路由、面板与数据源统一由 monitoring 组件管理。
 
 `infra/flux/settings.yaml` 中的 `CLOUDLAB_DOMAIN` 同时供 OpenTofu、应用 HTTPRoute 和 Homepage 使用。公网 DNS 记录由 [dns-config](https://github.com/fullstackjam/dns-config) 管理。
 
