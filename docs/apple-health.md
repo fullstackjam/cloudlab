@@ -31,4 +31,6 @@ Health Auto Export 使用 REST API 自动化发送 JSON。集群中的 `apple-he
 - HTTP Header 的名称为 `Authorization`，值为 `Bearer <导出 token>`。使用为接收器生成的导出 token。InfluxDB 的写入 token 由接收器持有。
 - 保留原有导出任务的数据类型、指标和频率。改完 URL 和 header 后，先用 **Manual Upload** 发一个短时间段，并从 InfluxDB 核对是否写入。
 
-在 Grafana 中查看 Apple Health 时，单独为数据源创建一个只有 `apple-health` 读取权限的 token。若通过 GitOps 配置数据源，用 SOPS 管理该 token。使用 `http://influxdb.apps.svc.cluster.local:8086` 作为 Grafana 的 InfluxDB 地址。
+在 Grafana 的 **Dashboards** 中打开 **Apple Health**。面板显示已同步的数据，包括每日步数、步行和跑步距离、心率和训练记录。每日数据按 Asia/Shanghai 划分，训练统计使用面板选定的时间范围。
+
+新环境先为 Grafana 创建一个只有 `apple-health` 读取权限的 InfluxDB token。以 `secrets/grafana-apple-health-datasource.sops.yaml` 为模板，将新 token 放进数据源配置的 `secureJsonData.token`，再用本次部署的 age 公钥重新加密 Secret。保留 `grafana_datasource: "1"` 标签和 `apple-health-influxdb` 数据源 UID。将密文加入 `secrets/kustomization.yaml` 后，Grafana 会加载数据源。面板定义在 `platform/infra/dashboards/apple-health.json`，由 `platform/infra/kustomization.yaml` 生成 ConfigMap 供 Grafana 加载。

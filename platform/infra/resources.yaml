@@ -75,6 +75,22 @@ spec:
           - op: remove
             path: /spec/alertmanagerConfigSelector
   values:
+    additionalPrometheusRulesMap:
+      cloudlab-storage:
+        groups:
+        - name: cloudlab.storage
+          rules:
+          - alert: CloudLabDataDiskUsageHigh
+            expr: |
+              100 * (1 -
+                node_filesystem_avail_bytes{mountpoint="/data",fstype="ext4"}
+                / node_filesystem_size_bytes{mountpoint="/data",fstype="ext4"}
+              ) > 80
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: CloudLab /data usage exceeded 80% for ten minutes
     defaultRules:
       rules:
         kubeControllerManager: false
@@ -91,6 +107,7 @@ spec:
         size: 5Gi
       sidecar:
         datasources:
+          resource: both
           url: http://thanos-query.apps.svc.cluster.local:10902
     prometheus:
       thanosService:

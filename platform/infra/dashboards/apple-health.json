@@ -1,0 +1,294 @@
+{
+  "uid": "apple-health",
+  "title": "Apple Health",
+  "tags": [
+    "cloudlab",
+    "apple-health"
+  ],
+  "description": "CloudLab Apple Health export and workout history.",
+  "timezone": "Asia/Shanghai",
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": false,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "每日同步步数",
+      "description": "按北京时间分日汇总已同步的步数。",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"step_count_count\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: 步",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "心率",
+      "description": "按面板时间分辨率显示已同步心率的平均值。",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"heart_rate_data_bpm\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: bpm",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "每日步行和跑步距离",
+      "description": "按北京时间分日汇总已同步的步行和跑步距离。",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "import \"timezone\"\noption location = timezone.location(name: \"Asia/Shanghai\")\n\nfrom(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"walking_running_distance_km\" and r._field == \"qty\")\n  |> group()\n  |> aggregateWindow(every: 1d, fn: sum, createEmpty: false, timeSrc: \"_start\")\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthkm",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "训练次数",
+      "description": "所选时段内带有训练时长的已同步活动。",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 6,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\" and r._field == \"duration_min\")\n  |> group()\n  |> count(column: \"_value\")"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: 次"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "title": "训练总时长",
+      "description": "所选时段内已同步活动的训练时长合计。",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 7,
+        "w": 6,
+        "h": 7
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\" and r._field == \"duration_min\")\n  |> group()\n  |> sum(column: \"_value\")"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: min"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "title": "训练记录",
+      "description": "按开始时间展示已同步训练的时长、距离和心率。",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "apple-health-influxdb"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "apple-health-influxdb"
+          },
+          "query": "from(bucket: \"apple-health\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"workout\")\n  |> filter(fn: (r) => contains(value: r._field, set: [\"duration_min\", \"distance_km\", \"avgHeartRate_bpm\", \"maxHeartRate_bpm\"]))\n  |> toFloat()\n  |> keep(columns: [\"_time\", \"_field\", \"_value\"])\n  |> group()\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> rename(fn: (column) =>\n    if column == \"_time\" then \"训练开始时间\"\n    else if column == \"duration_min\" then \"时长 (min)\"\n    else if column == \"distance_km\" then \"距离 (km)\"\n    else if column == \"avgHeartRate_bpm\" then \"平均心率 (bpm)\"\n    else if column == \"maxHeartRate_bpm\" then \"最高心率 (bpm)\"\n    else column)\n  |> sort(columns: [\"训练开始时间\"], desc: true)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "训练开始时间",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

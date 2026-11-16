@@ -16,4 +16,6 @@ Prometheus 继续抓取并在本地保留 3 天或 8 GB。Thanos Sidecar 把已�
 
 Prometheus 评估规则，并把告警交给集群内的 Alertmanager。Alertmanager 按告警名分组，向配置的 ntfy 主题发送触发和恢复通知。Webhook 只发送规则名和状态。Watchdog、InfoInhibitor 留在内部路由。参考部署没有为 k3s 自带的 scheduler、controller-manager、kube-proxy 配置独立抓取目标，因此停用对应的三条 `*Down` 规则。
 
+自定义规则放在 `platform/infra/resources.yaml` 的 `additionalPrometheusRulesMap` 下，由 Helm 创建 `PrometheusRule`。例如，`CloudLabDataDiskUsageHigh` 在 `/data` 的 ext4 文件系统可用空间低于 20% 并持续 10 分钟时触发。Alertmanager 原生 webhook 的 `payload` 模板负责生成 ntfy 需要的 JSON。
+
 新环境用自己的 age 公钥重新加密 `secrets/cloudlab-alertmanager.sops.yaml`。它是 `apps/cloudlab-alertmanager` Secret，`alertmanager.yaml` 保存原生配置，其中 ntfy webhook 的 URL 为 `https://ntfy.sh`，`payload.topic` 为目标主题。部署后检查 Prometheus 的 `/api/v1/alertmanagers` 列出了 Alertmanager，再验证一条测试通知。
