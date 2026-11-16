@@ -2,16 +2,16 @@
 
 Use this guide when asked to restore this environment on a specified machine. The entry point is [infra/restore.py](../infra/restore.py). It prepares an empty Ubuntu node, restores Git configuration and COS application backups, checks the services, and can take over the existing public endpoints.
 
-A restore reuses the existing repository, age identity, COS bucket, Tunnel, domains, and application credentials. Do not create replacements for those resources. Creating or reinstalling a CVM is a separate operation: verify the target and authorization before changing its system disk. The restore script never formats a disk or removes an existing cluster.
+A restore reuses the existing repository, age identity, COS bucket, Tunnel, domains, and application credentials. Do not create replacements for those resources. Creating or reinstalling a server is a separate operation: verify the target and authorization before changing its system disk. The restore script never formats a disk or removes an existing cluster.
 
 ## Gather the inputs
 
-Read the deployment inventory in the credential vault first; the reference deployment uses a note named `CloudLab Deployment`. It records resource IDs, the backup location, and credential references. Verify those records against the supplied machine and cloud API. Ask for information only when the target or a credential cannot be identified uniquely.
+Read the deployment inventory in the credential vault first; the reference deployment uses a note named `CloudLab Deployment`. It records the current source SSH destination, backup location, and credential references. The source is not a requirement for the recovery target. Verify the target through SSH; cloud account and instance IDs are not recovery inputs. Ask for information only when the target or a credential cannot be identified uniquely.
 
 | Input | How to identify it |
 | --- | --- |
-| Target SSH destination | The machine named in the request; verify its cloud instance, account, region, public address, and SSH identity |
-| Data disk UUID | Match the cloud disk ID to the guest disk serial with `lsblk`, then inspect its filesystem and UUID |
+| Target SSH destination | The machine named in the request; verify its SSH identity, operating system, and sudo access |
+| Data disk UUID | Inspect the target with `lsblk`, `blkid`, and `findmnt`; identify the intended data filesystem and distinguish it from the system filesystem |
 | Source SSH destination | The existing CloudLab node, if it is still running; compare its GitRepository URL and machine identity with the target |
 | GitHub repository | `git remote get-url origin`; pass `OWNER/REPO` |
 | SOPS age private key | The vault entry whose public recipient matches `.sops.yaml` and the committed ciphertext |
@@ -20,7 +20,7 @@ Read the deployment inventory in the credential vault first; the reference deplo
 | Kuma login | The saved login for `status.<domain>`; username and password are both needed |
 | ntfy topic URL | The existing notification destination; it must match the intended deployment |
 
-Use host-management credentials for CVM operations and backup object credentials for restic. They can belong to different cloud accounts. Do not assume one key can access both.
+Recovery manages the server over SSH and uses object storage credentials to read backups. It does not call a compute-provider API. The server can be hosted by any provider that meets the requirements below; it does not have to be hosted alongside the existing COS bucket.
 
 The management machine needs Python 3 with PyYAML, Git, SSH, kubectl, Flux, SOPS, and the GitHub CLI. Use the versions in the [bootstrap guide](bootstrap.md). `gh auth token` supplies the GitHub bootstrap token unless `GITHUB_TOKEN` is already set. The token must be able to push to this repository and manage its deploy keys.
 
@@ -107,8 +107,8 @@ If activation has already published the target configuration to `main`, rerunnin
 
 Report the restored snapshot, Flux revision, data checks, public whoami identity, notification event, and successful backup job. Wait for the `main` CI run to pass. Explicitly name any check that could not be completed.
 
-Update the deployment inventory with the active node, retained disks, backup location, and active deploy key, then read it back. Keep deployment-specific values and credential references outside Git.
+Update the deployment inventory with the active SSH destination, data mount, backup location, and active deploy key, then read it back. Do not include cloud-provider account IDs or treat the current server as a requirement for the next recovery target. Keep deployment-specific values and credential references outside Git.
 
 The script deletes its temporary branch after successful activation. Keep its active Flux deploy key: the cluster still uses that key when watching `main`. Delete a retired node's deploy key only after confirming it is no longer in use. Remove private recovery files and SSH forwarding processes when they are no longer needed.
 
-Only release a temporary CVM, its disks, and its security group when that cleanup was authorized and the final node has passed the checks above. Verify cloud resource deletion through the cloud API. Do not delete the retained node, COS bucket, Tunnel, production DNS records, or valid backup snapshots as part of temporary resource cleanup.
+If a temporary server was provisioned for the recovery, release it and its dedicated resources only when that cleanup was authorized and the final node has passed the checks above. Verify deletion with its hosting provider. This cleanup is separate from the SSH-based recovery workflow. Do not delete the retained node, COS bucket, Tunnel, production DNS records, or valid backup snapshots as part of temporary resource cleanup.
