@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: whoami
-        image: traefik/whoami:v1.11.0
+        image: traefik/whoami:v1.12.0
         ports:
         - containerPort: 80
         resources:
@@ -214,7 +214,7 @@ spec:
     spec:
       containers:
       - name: homepage
-        image: ghcr.io/gethomepage/homepage:v1.6.0
+        image: ghcr.io/gethomepage/homepage:v2.8.0
         ports:
         - containerPort: 3000
         resources:
