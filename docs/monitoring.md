@@ -20,4 +20,4 @@ Prometheus 评估规则，并把告警交给集群内的 Alertmanager。Alertman
 
 新环境用自己的 age 公钥重新加密 `platform/monitoring/secrets/alertmanager.sops.yaml`。它是 `apps/cloudlab-alertmanager` Secret，`alertmanager.yaml` 保存原生配置，其中 ntfy webhook 的 URL 为 `https://ntfy.sh`，`payload.topic` 为目标主题。部署后检查 Prometheus 的 `/api/v1/alertmanagers` 列出了 Alertmanager，再验证一条测试通知。
 
-Grafana 的 `route.yaml`、Helm 仓库 `source.yaml`、数据源密文和面板均由 monitoring 组件加载。面板 ConfigMap 设置 `kustomize.toolkit.fluxcd.io/substitute: disabled`，保留 Grafana 自身的变量表达式；路由继续使用共享域名替换。
+Grafana 的 `route.yaml`、Helm 仓库 `source.yaml`、数据源密文和官方 Health Auto Export 面板的配置均由 monitoring 组件加载。路由使用共享域名替换。

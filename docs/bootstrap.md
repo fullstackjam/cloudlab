@@ -115,7 +115,7 @@ ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:6443:127.0.0.1:6443 "$CLOUDLAB_S
 
 如果从已部署的仓库复制源码到另一个 GitHub 仓库，先在副本里把 `infra/flux/flux-system/gotk-components.yaml` 和 `gotk-sync.yaml` 恢复为注释占位文件，再用新部署的 age 公钥和凭据生成密文。推送这些改动后，Flux 会为新仓库生成控制器和同步清单。原仓库上的集群重建沿用已经提交的同步清单。
 
-全新 InfluxDB 环境先从 `apps/kustomization.yaml` 移除 Apple Health 接收器目录，从 `platform/monitoring/secrets/kustomization.yaml` 移除 Grafana Apple Health 数据源的密文引用。接收器的密文随组件一起停用。InfluxDB 就绪后，按 [Apple Health 接入](apple-health.md#iphone-自动导入与-grafana) 生成新 token，添加密文和引用，再启用接收器和数据源。
+需要 InfluxDB 导入链路时，全新环境先从 `apps/kustomization.yaml` 移除 Apple Health 接收器目录，接收器的密文随组件一起停用。InfluxDB 就绪后，按 [Apple Health 接入](apple-health.md#iphone-自动导入到-influxdb) 生成写入 token，添加密文和引用，再启用接收器。
 
 副本部署按 [监控与长期存储](monitoring.md) 准备 Thanos 的 COS 前缀和凭据，再用本次部署的 age 公钥加密对象存储配置。
 

@@ -18,14 +18,13 @@ flowchart LR
     IngestInflux --> InfluxDB
     MongoDB --> API[官方查询 API]
     API --> Grafana
-    InfluxDB --> Grafana
     Prometheus --> Thanos
     Thanos --> COS
     Thanos --> Grafana
     Backup[主机定时备份] --> COS
 ```
 
-官方 Health Auto Export 面板通过 HTTP API 查询 MongoDB，另一个 Apple Health 面板查询 InfluxDB。两条导入链路和各自的凭据见 [Apple Health 接入](docs/apple-health.md)。Prometheus 的本地留存、Thanos 查询和长期保存配置见 [监控手册](docs/monitoring.md)，应用数据的备份与恢复见 [备份手册](docs/backups.md)。
+官方 Health Auto Export 面板通过 HTTP API 查询 MongoDB。InfluxDB 提供独立的数据导入与查询。两条导入链路和各自的凭据见 [Apple Health 接入](docs/apple-health.md)。Prometheus 的本地留存、Thanos 查询和长期保存配置见 [监控手册](docs/monitoring.md)，应用数据的备份与恢复见 [备份手册](docs/backups.md)。
 
 ## 目录职责
 
